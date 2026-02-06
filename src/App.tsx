@@ -1,11 +1,11 @@
-import { Cloud, Stars } from '@react-three/drei';
+import { Cloud } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { EffectComposer, TiltShift2 } from '@react-three/postprocessing';
+import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CloudRain, List, Maximize2, Minimize2 } from 'lucide-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 
 const dreamWords = ['Relax', 'Breathe', 'Peace', 'Unwind', 'Stillness', 'Drift'];
 
@@ -154,6 +154,112 @@ const dreamTracks: DreamTrack[] = Object.entries(musicModules)
   })
   .sort((a, b) => `${a.artist} ${a.label}`.localeCompare(`${b.artist} ${b.label}`));
 
+/* ── Twinkling Stars ─────────────────────────────────────────── */
+
+const STAR_COUNT = 2800;
+
+function generateStarGeometry() {
+  const positions = new Float32Array(STAR_COUNT * 3);
+  const sizes = new Float32Array(STAR_COUNT);
+  const twinkleSeeds = new Float32Array(STAR_COUNT);
+
+  for (let i = 0; i < STAR_COUNT; i++) {
+    // Distribute on a sphere shell between radius 80-250
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = 80 + Math.random() * 170;
+
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = r * Math.cos(phi);
+
+    // Vary star sizes — most small, a few bright
+    const roll = Math.random();
+    sizes[i] = roll < 0.85 ? 0.4 + Math.random() * 0.8 : 1.4 + Math.random() * 1.6;
+
+    // Random phase offset for twinkling
+    twinkleSeeds[i] = Math.random() * Math.PI * 2;
+  }
+
+  return { positions, sizes, twinkleSeeds };
+}
+
+const starVertexShader = `
+  attribute float size;
+  attribute float twinkleSeed;
+  varying float vTwinkleSeed;
+  varying float vSize;
+  uniform float uTime;
+  void main() {
+    vTwinkleSeed = twinkleSeed;
+    vSize = size;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    // Twinkle: modulate size gently
+    float twinkle = 0.7 + 0.3 * sin(uTime * (0.4 + twinkleSeed * 0.6) + twinkleSeed * 6.2831);
+    gl_PointSize = size * twinkle * (200.0 / -mvPosition.z);
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+const starFragmentShader = `
+  varying float vTwinkleSeed;
+  varying float vSize;
+  uniform float uTime;
+  void main() {
+    // Soft circular point with glow falloff
+    float d = length(gl_PointCoord - vec2(0.5));
+    if (d > 0.5) discard;
+    float alpha = smoothstep(0.5, 0.08, d);
+    // Subtle warm/cool tint variation per star
+    float warmth = 0.5 + 0.5 * sin(vTwinkleSeed * 3.14);
+    vec3 warm = vec3(1.0, 0.95, 0.85);
+    vec3 cool = vec3(0.85, 0.92, 1.0);
+    vec3 color = mix(cool, warm, warmth);
+    // Brightness twinkle
+    float brightness = 0.75 + 0.25 * sin(uTime * (0.3 + vTwinkleSeed * 0.5) + vTwinkleSeed * 6.2831);
+    gl_FragColor = vec4(color * brightness, alpha * 0.9);
+  }
+`;
+
+function TwinklingStars() {
+  const pointsRef = useRef<THREE.Points>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+
+  const { positions, sizes, twinkleSeeds } = useMemo(() => generateStarGeometry(), []);
+
+  useFrame((state) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+    }
+    // Very gentle rotation for parallax
+    if (pointsRef.current) {
+      pointsRef.current.rotation.y += 0.00004;
+      pointsRef.current.rotation.x += 0.00002;
+    }
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute attach='attributes-position' args={[positions, 3]} />
+        <bufferAttribute attach='attributes-size' args={[sizes, 1]} />
+        <bufferAttribute attach='attributes-twinkleSeed' args={[twinkleSeeds, 1]} />
+      </bufferGeometry>
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={starVertexShader}
+        fragmentShader={starFragmentShader}
+        uniforms={{ uTime: { value: 0 } }}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
+/* ── Cloud Types ─────────────────────────────────────────────── */
+
 type DriftingCloudProps = {
   startX: number;
   startY: number;
@@ -168,7 +274,7 @@ function DriftingCloud({ startY, startZ, speed, scale, tint, phase }: DriftingCl
   const cloudRef = useRef<THREE.Group>(null);
   const baseOpacity = Math.min(0.58, 0.4 + scale * 0.08);
   // Spread clouds across the visible range using phase for initial stagger
-  const initialX = -35 + (phase / 8) * 70;
+  const initialX = -35 + (phase / 14) * 70;
   const positionRef = useRef(initialX);
 
   useFrame((_, delta) => {
@@ -218,8 +324,8 @@ function DriftingCloud({ startY, startZ, speed, scale, tint, phase }: DriftingCl
       <Cloud
         opacity={baseOpacity}
         speed={0}
-        bounds={[8.4 * scale, 1.5, 2]}
-        segments={28}
+        bounds={[3.5 * scale, 1.2 * scale, 1.5]}
+        segments={12}
         color={tint}
       />
     </group>
@@ -229,86 +335,56 @@ function DriftingCloud({ startY, startZ, speed, scale, tint, phase }: DriftingCl
 const DriftingClouds = memo(function DriftingClouds({ cloudTint }: { cloudTint: string }) {
   const cloudField = useMemo(
     () => [
+      { startX: -14, startY: 5, startZ: -18, speed: 0.55, scale: 1.3, tint: cloudTint, phase: 0.0 },
+      { startX: 6, startY: 8, startZ: -22, speed: 0.42, scale: 1.6, tint: cloudTint, phase: 0.9 },
+      {
+        startX: -20,
+        startY: -3,
+        startZ: -15,
+        speed: 0.65,
+        scale: 1.0,
+        tint: cloudTint,
+        phase: 1.6,
+      },
+      { startX: 14, startY: 2, startZ: -20, speed: 0.48, scale: 1.4, tint: cloudTint, phase: 2.3 },
+      { startX: -6, startY: -7, startZ: -17, speed: 0.58, scale: 1.1, tint: cloudTint, phase: 3.1 },
+      { startX: 0, startY: 11, startZ: -24, speed: 0.38, scale: 1.7, tint: cloudTint, phase: 3.8 },
+      { startX: 10, startY: -5, startZ: -16, speed: 0.62, scale: 0.9, tint: cloudTint, phase: 4.5 },
+      { startX: -16, startY: 3, startZ: -19, speed: 0.52, scale: 1.2, tint: cloudTint, phase: 5.2 },
+      { startX: 18, startY: 7, startZ: -21, speed: 0.45, scale: 1.5, tint: cloudTint, phase: 5.9 },
+      {
+        startX: -10,
+        startY: -9,
+        startZ: -14,
+        speed: 0.68,
+        scale: 0.85,
+        tint: cloudTint,
+        phase: 6.6,
+      },
+      { startX: 4, startY: -1, startZ: -23, speed: 0.4, scale: 1.55, tint: cloudTint, phase: 7.3 },
+      { startX: -4, startY: 6, startZ: -16, speed: 0.6, scale: 1.05, tint: cloudTint, phase: 8.0 },
+      { startX: 12, startY: -8, startZ: -19, speed: 0.5, scale: 1.25, tint: cloudTint, phase: 8.7 },
+      { startX: -18, startY: 9, startZ: -25, speed: 0.35, scale: 1.8, tint: cloudTint, phase: 9.4 },
+      { startX: 8, startY: 0, startZ: -13, speed: 0.7, scale: 0.8, tint: cloudTint, phase: 10.1 },
+      // Larger majestic clouds
+      { startX: -8, startY: 4, startZ: -26, speed: 0.3, scale: 2.8, tint: cloudTint, phase: 10.8 },
+      {
+        startX: 10,
+        startY: -3,
+        startZ: -28,
+        speed: 0.25,
+        scale: 3.2,
+        tint: cloudTint,
+        phase: 12.0,
+      },
       {
         startX: -14,
-        startY: 4.5,
-        startZ: -17,
-        speed: 0.68,
-        scale: 1.85,
+        startY: -6,
+        startZ: -30,
+        speed: 0.22,
+        scale: 3.5,
         tint: cloudTint,
-        phase: 0.1,
-      },
-      {
-        startX: -8,
-        startY: -2,
-        startZ: -13,
-        speed: 0.62,
-        scale: 1.55,
-        tint: cloudTint,
-        phase: 1.3,
-      },
-      {
-        startX: 2,
-        startY: 2.2,
-        startZ: -19,
-        speed: 0.56,
-        scale: 2.2,
-        tint: cloudTint,
-        phase: 2.1,
-      },
-      {
-        startX: 8,
-        startY: -4.8,
-        startZ: -15,
-        speed: 0.66,
-        scale: 1.72,
-        tint: cloudTint,
-        phase: 2.9,
-      },
-      {
-        startX: -2,
-        startY: 6.8,
-        startZ: -21,
-        speed: 0.5,
-        scale: 2.45,
-        tint: cloudTint,
-        phase: 3.6,
-      },
-      {
-        startX: -18,
-        startY: -5.5,
-        startZ: -16,
-        speed: 0.58,
-        scale: 1.65,
-        tint: cloudTint,
-        phase: 4.2,
-      },
-      {
-        startX: 12,
-        startY: 5.2,
-        startZ: -18,
-        speed: 0.64,
-        scale: 1.95,
-        tint: cloudTint,
-        phase: 5.1,
-      },
-      {
-        startX: -5,
-        startY: 0.8,
-        startZ: -14,
-        speed: 0.52,
-        scale: 1.4,
-        tint: cloudTint,
-        phase: 6.3,
-      },
-      {
-        startX: 5,
-        startY: -6.5,
-        startZ: -20,
-        speed: 0.6,
-        scale: 2.1,
-        tint: cloudTint,
-        phase: 7.0,
+        phase: 13.5,
       },
     ],
     [cloudTint]
@@ -325,13 +401,13 @@ const DriftingClouds = memo(function DriftingClouds({ cloudTint }: { cloudTint: 
 
 const SceneCanvas = memo(function SceneCanvas({ cloudTint }: { cloudTint: string }) {
   return (
-    <Canvas camera={{ position: [0, 0, 10], fov: 75 }}>
-      <ambientLight intensity={0.8} />
-      <pointLight position={[10, 10, 10]} intensity={1} color='#fff' />
+    <Canvas camera={{ position: [0, 0, 10], fov: 75 }} gl={{ antialias: true }}>
+      <ambientLight intensity={0.6} />
+      <pointLight position={[10, 10, 10]} intensity={0.8} color='#fff' />
+      <TwinklingStars />
       <DriftingClouds cloudTint={cloudTint} />
-      <Stars radius={200} depth={50} count={1000} factor={4} saturation={0} fade speed={0.5} />
       <EffectComposer>
-        <TiltShift2 blur={0.5} />
+        <Bloom luminanceThreshold={0.3} luminanceSmoothing={0.9} intensity={0.4} mipmapBlur />
       </EffectComposer>
     </Canvas>
   );
@@ -383,6 +459,7 @@ export default function DreamTransmission() {
   const shouldResumeOnTrackChangeRef = useRef(false);
   const cometIdRef = useRef(0);
   const cometCleanupTimersRef = useRef<number[]>([]);
+  const bgRef = useRef<HTMLDivElement>(null);
   const [boostActive, setBoostActive] = useState(false);
   const [wordIndex, setWordIndex] = useState(0);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -482,10 +559,10 @@ export default function DreamTransmission() {
       const id = ++cometIdRef.current;
       const comet = {
         id,
-        top: 8 + Math.random() * 44,
-        left: 72 + Math.random() * 24,
-        width: 90 + Math.random() * 120,
-        duration: 1200 + Math.random() * 1600,
+        top: 5 + Math.random() * 50,
+        left: 60 + Math.random() * 35,
+        width: 80 + Math.random() * 160,
+        duration: 1000 + Math.random() * 1800,
       };
       setComets((prev) => [...prev, comet]);
 
@@ -495,8 +572,17 @@ export default function DreamTransmission() {
       cometCleanupTimersRef.current.push(cleanupId);
     };
 
-    const initialSpawnDelay = window.setTimeout(spawnComet, Math.random() * 60000);
-    const recurringSpawn = window.setInterval(spawnComet, 60000);
+    const initialSpawnDelay = window.setTimeout(spawnComet, Math.random() * 8000);
+    const recurringSpawn = window.setInterval(
+      () => {
+        spawnComet();
+        // Chance of a second comet shortly after for clusters
+        if (Math.random() < 0.35) {
+          window.setTimeout(spawnComet, 300 + Math.random() * 700);
+        }
+      },
+      12000 + Math.random() * 10000
+    );
 
     return () => {
       window.clearTimeout(initialSpawnDelay);
@@ -543,10 +629,28 @@ export default function DreamTransmission() {
     shouldResumeOnTrackChangeRef.current = false;
   }, [trackIndex, ensureAudioBoost]);
 
+  // Slow hue drift — oscillates ±7deg (~2% of 360°) over ~3.5 min
+  useEffect(() => {
+    let raf: number;
+    const start = performance.now();
+    const tick = () => {
+      const elapsed = (performance.now() - start) / 1000;
+      // Full cycle every ~210s (3.5 min), max ±7 degrees
+      const hue = Math.sin(elapsed * ((2 * Math.PI) / 210)) * 7;
+      if (bgRef.current) {
+        bgRef.current.style.filter = `hue-rotate(${hue.toFixed(2)}deg)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   const currentTheme = ALL_THEMES[themeIndex];
 
   return (
     <div
+      ref={bgRef}
       className='relative w-full h-screen overflow-hidden transition-all duration-1000'
       style={{
         background: `linear-gradient(to bottom, ${currentTheme.colors[0]}, ${currentTheme.colors[1]}, ${currentTheme.colors[2]})`,
