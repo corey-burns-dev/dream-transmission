@@ -1,7 +1,9 @@
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "dream-transmission",
-	"pages_build_output_dir": "dist",
-	"compatibility_date": "2024-11-01"
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dream-transmission",
+  "assets": {
+    "directory": "dist",
+  },
+  "compatibility_date": "2024-11-01",
 }
 // Production URL: https://dreaming.coreyburns.ca
