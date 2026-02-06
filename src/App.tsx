@@ -400,6 +400,7 @@ export default function DreamTransmission() {
           </div>
           <div className='flex items-center gap-1.5'>
             <button
+              type='button'
               onClick={() => setPlayerMode(playerMode === 'minimized' ? 'normal' : 'minimized')}
               className='p-1 rounded-full hover:bg-white/20 transition-colors'
               title={playerMode === 'minimized' ? 'Restore' : 'Minimize'}
@@ -407,6 +408,7 @@ export default function DreamTransmission() {
               {playerMode === 'minimized' ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
             </button>
             <button
+              type='button'
               onClick={() => setPlayerMode(playerMode === 'maximized' ? 'normal' : 'maximized')}
               className='p-1 rounded-full hover:bg-white/20 transition-colors'
               title={playerMode === 'maximized' ? 'Standard View' : 'Playlist'}
