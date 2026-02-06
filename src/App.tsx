@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { EffectComposer, TiltShift2 } from '@react-three/postprocessing';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CloudRain, List, Maximize2, Minimize2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type * as THREE from 'three';
 
@@ -164,33 +164,43 @@ type DriftingCloudProps = {
   phase: number;
 };
 
-function DriftingCloud({ startX, startY, startZ, speed, scale, tint, phase }: DriftingCloudProps) {
+function DriftingCloud({ startY, startZ, speed, scale, tint, phase }: DriftingCloudProps) {
   const cloudRef = useRef<THREE.Group>(null);
   const baseOpacity = Math.min(0.58, 0.4 + scale * 0.08);
+  // Spread clouds across the visible range using phase for initial stagger
+  const initialX = -35 + (phase / 8) * 70;
+  const positionRef = useRef(initialX);
 
-  useFrame((state) => {
+  useFrame((_, delta) => {
     if (!cloudRef.current) return;
 
-    const elapsed = state.clock.elapsedTime;
-    // Drift from right to left across a 60-unit range (-30 to 30)
-    const range = 60;
-    const offset = (elapsed * speed + phase * range) % range;
-    const xPos = -30 + offset;
+    // Drift continuously to the right
+    positionRef.current += speed * delta;
+
+    // When cloud is fully past the right edge and invisible, wrap to left
+    if (positionRef.current > 45) {
+      positionRef.current = -45;
+    }
+
+    const xPos = positionRef.current;
     cloudRef.current.position.x = xPos;
 
     // Gentle vertical float
-    const floatY = Math.sin(elapsed * 0.15 + phase) * 0.4;
+    const time = performance.now() * 0.001;
+    const floatY = Math.sin(time * 0.15 + phase) * 0.4;
     cloudRef.current.position.y = startY + floatY;
 
     // Fade in/out at edges — apply directly to materials (no React re-render)
-    const fadeInEnd = -20;
-    const fadeOutStart = 20;
+    const fadeInStart = -35;
+    const fadeInEnd = -25;
+    const fadeOutStart = 25;
+    const fadeOutEnd = 35;
     let targetOpacity = baseOpacity;
 
     if (xPos < fadeInEnd) {
-      targetOpacity *= Math.max(0, (xPos + 30) / (fadeInEnd + 30));
+      targetOpacity *= Math.max(0, (xPos - fadeInStart) / (fadeInEnd - fadeInStart));
     } else if (xPos > fadeOutStart) {
-      targetOpacity *= Math.max(0, 1 - (xPos - fadeOutStart) / (30 - fadeOutStart));
+      targetOpacity *= Math.max(0, 1 - (xPos - fadeOutStart) / (fadeOutEnd - fadeOutStart));
     }
 
     // Traverse cloud children and set material opacity directly
@@ -204,7 +214,7 @@ function DriftingCloud({ startX, startY, startZ, speed, scale, tint, phase }: Dr
   });
 
   return (
-    <group ref={cloudRef} position={[startX, startY, startZ]}>
+    <group ref={cloudRef} position={[initialX, startY, startZ]}>
       <Cloud
         opacity={baseOpacity}
         speed={0}
@@ -216,7 +226,7 @@ function DriftingCloud({ startX, startY, startZ, speed, scale, tint, phase }: Dr
   );
 }
 
-function DriftingClouds({ cloudTint }: { cloudTint: string }) {
+const DriftingClouds = memo(function DriftingClouds({ cloudTint }: { cloudTint: string }) {
   const cloudField = useMemo(
     () => [
       {
@@ -311,11 +321,51 @@ function DriftingClouds({ cloudTint }: { cloudTint: string }) {
       ))}
     </>
   );
-}
+});
 
-import ambientRainLittleStorm from './assets/ambient/audiopapkin-rain-and-little-storm-298087.mp3';
-import ambientRainThunder from './assets/ambient/freesound_community-rain-and-thunder-16705.mp3';
+const SceneCanvas = memo(function SceneCanvas({ cloudTint }: { cloudTint: string }) {
+  return (
+    <Canvas camera={{ position: [0, 0, 10], fov: 75 }}>
+      <ambientLight intensity={0.8} />
+      <pointLight position={[10, 10, 10]} intensity={1} color='#fff' />
+      <DriftingClouds cloudTint={cloudTint} />
+      <Stars radius={200} depth={50} count={1000} factor={4} saturation={0} fade speed={0.5} />
+      <EffectComposer>
+        <TiltShift2 blur={0.5} />
+      </EffectComposer>
+    </Canvas>
+  );
+});
+
+const DreamTitle = memo(function DreamTitle({ wordIndex }: { wordIndex: number }) {
+  return (
+    <div className='absolute z-10 text-center -translate-x-1/2 -translate-y-1/2 pointer-events-none top-1/2 left-1/2'>
+      <motion.h1
+        initial={{ opacity: 0, scale: 0.8, filter: 'blur(10px)' }}
+        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+        transition={{ duration: 4 }}
+        className='font-serif text-6xl italic text-white md:text-8xl mix-blend-overlay drop-shadow-lg'
+      >
+        <AnimatePresence mode='wait'>
+          <motion.span
+            key={dreamWords[wordIndex]}
+            initial={{ opacity: 0, y: 10, filter: 'blur(8px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -10, filter: 'blur(8px)' }}
+            transition={{ duration: 2.2, ease: 'easeInOut' }}
+            className='inline-block'
+          >
+            {dreamWords[wordIndex]}
+          </motion.span>
+        </AnimatePresence>
+      </motion.h1>
+    </div>
+  );
+});
+
 import ambientRainStorm from './assets/ambient/rain-storm.mp3';
+import ambientRainThunder from './assets/ambient/rain-storm2.mp3';
+import ambientRainLittleStorm from './assets/ambient/rain-storm3.mp3';
 
 const AMBIENT_SOUNDS = [
   { label: 'Rain Storm', src: ambientRainStorm, icon: CloudRain },
@@ -419,7 +469,13 @@ export default function DreamTransmission() {
       audio.pause();
       audio.src = '';
     }
-  }, [ambientIndex, ambientVolume]);
+  }, [ambientIndex]);
+
+  useEffect(() => {
+    const audio = ambientRef.current;
+    if (!audio) return;
+    audio.volume = ambientVolume;
+  }, [ambientVolume]);
 
   useEffect(() => {
     const spawnComet = () => {
@@ -491,13 +547,13 @@ export default function DreamTransmission() {
 
   return (
     <div
-      className='w-full h-screen relative overflow-hidden transition-all duration-1000'
+      className='relative w-full h-screen overflow-hidden transition-all duration-1000'
       style={{
         background: `linear-gradient(to bottom, ${currentTheme.colors[0]}, ${currentTheme.colors[1]}, ${currentTheme.colors[2]})`,
       }}
     >
       {/* Top-Left Wake Up Button */}
-      <div className='absolute top-6 left-6 z-30'>
+      <div className='absolute z-30 top-6 left-6'>
         <Link
           to='/'
           className='bg-white/25 backdrop-blur-xl border border-white/20 px-5 py-2.5 rounded-full text-slate-700/80 uppercase tracking-widest text-[10px] hover:bg-white/45 transition-all shadow-lg hover:scale-105 duration-300'
@@ -507,7 +563,7 @@ export default function DreamTransmission() {
       </div>
 
       {/* Theme Picker Widget (Bottom-Left) */}
-      <div className='absolute left-4 bottom-4 z-30 sm:left-6 sm:bottom-6'>
+      <div className='absolute z-30 left-4 bottom-4 sm:left-6 sm:bottom-6'>
         <AnimatePresence>
           {showThemePicker && (
             <>
@@ -523,10 +579,10 @@ export default function DreamTransmission() {
                 initial={{ opacity: 0, y: 20, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                className='relative z-20 mb-4 w-[min(90vw,32rem)] max-h-[70vh] overflow-y-auto rounded-3xl border border-white/45 bg-white/35 p-5 shadow-2xl backdrop-blur-2xl custom-scrollbar'
+                className='relative z-20 mb-4 w-[min(92vw,40rem)] max-h-[70vh] overflow-y-auto rounded-3xl border border-white/45 bg-white/35 p-5 shadow-2xl backdrop-blur-2xl custom-scrollbar'
               >
                 <div className='flex items-center justify-between mb-4'>
-                  <h3 className='text-xs font-bold uppercase tracking-widest text-slate-700/60'>
+                  <h3 className='text-xs font-bold tracking-widest uppercase text-slate-700/60'>
                     Atmosphere
                   </h3>
                   <button
@@ -544,7 +600,7 @@ export default function DreamTransmission() {
                       <h4 className='text-[10px] uppercase tracking-[0.2em] text-slate-500 mb-3 ml-1'>
                         {cat.name}
                       </h4>
-                      <div className='grid grid-cols-2 sm:grid-cols-3 gap-2'>
+                      <div className='grid grid-cols-3 gap-2'>
                         {cat.themes.map((theme) => {
                           const globalIndex = ALL_THEMES.findIndex((t) => t.name === theme.name);
                           const isSelected = themeIndex === globalIndex;
@@ -596,14 +652,14 @@ export default function DreamTransmission() {
         <button
           type='button'
           onClick={() => setShowThemePicker(!showThemePicker)}
-          className='flex items-center gap-2 bg-white/30 backdrop-blur-xl border border-white/20 p-3 rounded-2xl shadow-xl hover:bg-white/50 transition-all hover:scale-105 group'
+          className='flex items-center gap-2 p-3 transition-all border shadow-xl bg-white/30 backdrop-blur-xl border-white/20 rounded-2xl hover:bg-white/50 hover:scale-105 group'
           title='Change Atmosphere'
         >
           <div className='flex -space-x-1.5'>
             {currentTheme.colors.map((c, i) => (
               <div
                 key={`trigger-${currentTheme.name}-${c}-${i}`}
-                className='w-4 h-4 rounded-full border border-white/40 shadow-sm'
+                className='w-4 h-4 border rounded-full shadow-sm border-white/40'
                 style={{ backgroundColor: c }}
               />
             ))}
@@ -618,11 +674,11 @@ export default function DreamTransmission() {
         dragMomentum={false}
         animate={{
           width:
-            playerMode === 'minimized' ? '14rem' : playerMode === 'maximized' ? '28rem' : '24rem',
+            playerMode === 'minimized' ? '16rem' : playerMode === 'maximized' ? '28rem' : '24rem',
           height:
             playerMode === 'minimized' ? 'auto' : playerMode === 'maximized' ? '30rem' : 'auto',
         }}
-        className='absolute right-4 bottom-4 z-30 overflow-hidden rounded-2xl border border-white/45 bg-white/35 p-3 text-slate-700 shadow-2xl backdrop-blur-xl sm:right-6 sm:bottom-6'
+        className='absolute z-30 p-3 overflow-hidden border shadow-2xl right-4 bottom-4 rounded-2xl border-white/45 bg-white/35 text-slate-700 backdrop-blur-xl sm:right-6 sm:bottom-6'
         style={{
           resize: playerMode === 'normal' ? 'both' : 'none',
           minWidth: playerMode === 'minimized' ? 'auto' : '16rem',
@@ -639,7 +695,7 @@ export default function DreamTransmission() {
             <button
               type='button'
               onClick={() => setPlayerMode(playerMode === 'minimized' ? 'normal' : 'minimized')}
-              className='p-1 rounded-full hover:bg-white/20 transition-colors'
+              className='p-1 transition-colors rounded-full hover:bg-white/20'
               title={playerMode === 'minimized' ? 'Restore' : 'Minimize'}
             >
               {playerMode === 'minimized' ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
@@ -647,7 +703,7 @@ export default function DreamTransmission() {
             <button
               type='button'
               onClick={() => setPlayerMode(playerMode === 'maximized' ? 'normal' : 'maximized')}
-              className='p-1 rounded-full hover:bg-white/20 transition-colors'
+              className='p-1 transition-colors rounded-full hover:bg-white/20'
               title={playerMode === 'maximized' ? 'Standard View' : 'Playlist'}
             >
               <List size={12} />
@@ -661,34 +717,36 @@ export default function DreamTransmission() {
         </div>
 
         {playerMode === 'minimized' ? (
-          <div className='flex items-center justify-between gap-2'>
-            <p className='text-[11px] font-medium truncate flex-1'>
-              {dreamTracks[trackIndex]?.label || 'Nothing playing'}
-            </p>
-            <div className='flex gap-1'>
-              <button
-                type='button'
-                onClick={goToPreviousTrack}
-                className='text-slate-600 hover:text-slate-900'
-                title='Prev'
-              >
-                <span className='text-[10px]'>◀</span>
-              </button>
-              <button
-                type='button'
-                onClick={goToNextTrack}
-                className='text-slate-600 hover:text-slate-900'
-                title='Next'
-              >
-                <span className='text-[10px]'>▶</span>
-              </button>
+          <div>
+            <div className='flex items-center justify-between gap-2 mb-1.5'>
+              <p className='text-[11px] font-medium truncate flex-1'>
+                {dreamTracks[trackIndex]?.label || 'Nothing playing'}
+              </p>
+              <div className='flex gap-1'>
+                <button
+                  type='button'
+                  onClick={goToPreviousTrack}
+                  className='text-slate-600 hover:text-slate-900'
+                  title='Prev'
+                >
+                  <span className='text-[10px]'>◀</span>
+                </button>
+                <button
+                  type='button'
+                  onClick={goToNextTrack}
+                  className='text-slate-600 hover:text-slate-900'
+                  title='Next'
+                >
+                  <span className='text-[10px]'>▶</span>
+                </button>
+              </div>
             </div>
           </div>
         ) : (
           <>
             {dreamTracks.length > 0 ? (
               <div className='mb-3'>
-                <p className='text-sm font-semibold truncate leading-tight'>
+                <p className='text-sm font-semibold leading-tight truncate'>
                   {dreamTracks[trackIndex].label}
                 </p>
                 <p className='text-[11px] text-slate-700/75 truncate leading-tight'>
@@ -700,7 +758,7 @@ export default function DreamTransmission() {
             )}
 
             {playerMode === 'maximized' && (
-              <div className='flex-1 overflow-y-auto mb-4 max-h-64 pr-1 custom-scrollbar'>
+              <div className='flex-1 pr-1 mb-4 overflow-y-auto max-h-64 custom-scrollbar'>
                 <div className='space-y-1'>
                   {dreamTracks.map((track, i) => (
                     <button
@@ -714,7 +772,7 @@ export default function DreamTransmission() {
                       }`}
                     >
                       <p className='font-medium truncate'>{track.label}</p>
-                      <p className='opacity-60 truncate'>{track.artist}</p>
+                      <p className='truncate opacity-60'>{track.artist}</p>
                     </button>
                   ))}
                 </div>
@@ -773,33 +831,36 @@ export default function DreamTransmission() {
                     step='0.01'
                     value={ambientVolume}
                     onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
-                    className='w-12 h-1 accent-slate-600 cursor-pointer'
+                    className='w-12 h-1 cursor-pointer accent-slate-600'
                     title='Ambient Volume'
                   />
                 )}
               </div>
-              <audio ref={ambientRef} preload='auto' title='Ambient Sound'>
-                <track kind='captions' />
-              </audio>
-            </div>
-
-            <div className='mt-2'>
-              <audio
-                ref={audioRef}
-                controls
-                preload='metadata'
-                onPlay={handleAudioPlay}
-                onEnded={goToNextTrack}
-                className='h-8 w-full opacity-90'
-                src={dreamTracks[trackIndex]?.src}
-                title={dreamTracks[trackIndex]?.label}
-              >
-                <track kind='captions' />
-                Your browser does not support the audio element.
-              </audio>
             </div>
           </>
         )}
+
+        {/* Persistent audio elements — always mounted so playback survives mode changes */}
+        <div className={playerMode === 'minimized' ? 'mt-1' : 'mt-2'}>
+          <audio
+            ref={audioRef}
+            controls
+            preload='metadata'
+            onPlay={handleAudioPlay}
+            onEnded={goToNextTrack}
+            className={
+              playerMode === 'minimized' ? 'w-full h-6 opacity-80' : 'w-full h-8 opacity-90'
+            }
+            src={dreamTracks[trackIndex]?.src}
+            title={dreamTracks[trackIndex]?.label}
+          >
+            <track kind='captions' />
+            Your browser does not support the audio element.
+          </audio>
+        </div>
+        <audio ref={ambientRef} preload='auto' title='Ambient Sound'>
+          <track kind='captions' />
+        </audio>
 
         {playerMode !== 'minimized' && (
           <p className='mt-2 text-[10px] text-slate-700/60 text-right italic'>
@@ -810,33 +871,13 @@ export default function DreamTransmission() {
 
       {/* Wake Up Button removed from here (now at top-left) */}
 
-      <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center pointer-events-none'>
-        <motion.h1
-          initial={{ opacity: 0, scale: 0.8, filter: 'blur(10px)' }}
-          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-          transition={{ duration: 4 }}
-          className='text-6xl md:text-8xl font-serif italic text-white mix-blend-overlay drop-shadow-lg'
-        >
-          <AnimatePresence mode='wait'>
-            <motion.span
-              key={dreamWords[wordIndex]}
-              initial={{ opacity: 0, y: 10, filter: 'blur(8px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -10, filter: 'blur(8px)' }}
-              transition={{ duration: 2.2, ease: 'easeInOut' }}
-              className='inline-block'
-            >
-              {dreamWords[wordIndex]}
-            </motion.span>
-          </AnimatePresence>
-        </motion.h1>
-      </div>
+      <DreamTitle wordIndex={wordIndex} />
 
-      <div className='absolute inset-0 z-15 overflow-hidden pointer-events-none'>
+      <div className='absolute inset-0 overflow-hidden pointer-events-none z-15'>
         {comets.map((comet) => (
           <span
             key={comet.id}
-            className='dt-comet absolute'
+            className='absolute dt-comet'
             style={{
               top: `${comet.top}%`,
               left: `${comet.left}%`,
@@ -847,18 +888,7 @@ export default function DreamTransmission() {
         ))}
       </div>
 
-      <Canvas camera={{ position: [0, 0, 10], fov: 75 }}>
-        <ambientLight intensity={0.8} />
-        <pointLight position={[10, 10, 10]} intensity={1} color='#fff' />
-
-        <DriftingClouds cloudTint={currentTheme.cloudTint} />
-
-        <Stars radius={200} depth={50} count={1000} factor={4} saturation={0} fade speed={0.5} />
-
-        <EffectComposer>
-          <TiltShift2 blur={0.5} />
-        </EffectComposer>
-      </Canvas>
+      <SceneCanvas cloudTint={currentTheme.cloudTint} />
 
       <style>{`
 				.dt-comet {
