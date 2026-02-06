@@ -8,6 +8,132 @@ import { Link } from 'react-router-dom';
 import * as THREE from 'three';
 
 const dreamWords = ['Relax', 'Breathe', 'Peace', 'Unwind', 'Stillness', 'Drift'];
+
+const THEME_CATEGORIES = [
+  {
+    name: 'Sunset/Twilight',
+    themes: [
+      {
+        name: 'Peach Dust',
+        colors: ['#fdf2f8', '#fed7aa', '#fdf2f8'],
+        cloudTint: '#fecaca',
+      },
+      {
+        name: 'Lilac Blush',
+        colors: ['#e0f2fe', '#fbcfe8', '#fff7ed'],
+        cloudTint: '#f5d0fe',
+      },
+      {
+        name: 'Mint Apricot',
+        colors: ['#fafaf9', '#ffedd5', '#ecfdf5'],
+        cloudTint: '#dbeafe',
+      },
+    ],
+  },
+  {
+    name: 'Dreamy Pastels',
+    themes: [
+      {
+        name: 'Cotton Candy',
+        colors: ['#dbeafe', '#fce7f3', '#fef9c3'],
+        cloudTint: '#e0f2fe',
+      },
+      {
+        name: 'Seafoam Aqua',
+        colors: ['#f0fdf4', '#fce7f3', '#ecfeff'],
+        cloudTint: '#ccfbf1',
+      },
+      {
+        name: 'Rose Butter',
+        colors: ['#f5f3ff', '#fef3c7', '#fdf2f8'],
+        cloudTint: '#fafaf9',
+      },
+    ],
+  },
+  {
+    name: 'Cool & Calming',
+    themes: [
+      {
+        name: 'Silver Sage',
+        colors: ['#f0f9ff', '#f1f5f9', '#fdf2f8'],
+        cloudTint: '#cbd5e1',
+      },
+      {
+        name: 'Turquoise Coral',
+        colors: ['#f0fdff', '#f5f3ff', '#fff1f2'],
+        cloudTint: '#ccfbf1',
+      },
+      {
+        name: 'Soft Taupe',
+        colors: ['#eff6ff', '#f5f5f4', '#fff1f2'],
+        cloudTint: '#f1f5f9',
+      },
+    ],
+  },
+  {
+    name: 'Warm & Gentle',
+    themes: [
+      {
+        name: 'Gold Peachy',
+        colors: ['#fff7ed', '#fafaf9', '#fdf2f8'],
+        cloudTint: '#fef3c7',
+      },
+      {
+        name: 'Terra Coral',
+        colors: ['#fff1f2', '#fef2f2', '#fff7ed'],
+        cloudTint: '#ffedd5',
+      },
+      {
+        name: 'Champagne Nude',
+        colors: ['#fff7ed', '#f5f5f4', '#fdf2f8'],
+        cloudTint: '#fafaf9',
+      },
+    ],
+  },
+  {
+    name: 'Nature-Inspired',
+    themes: [
+      {
+        name: 'Sage White',
+        colors: ['#f0fdf4', '#fdf2f8', '#f5f5f4'],
+        cloudTint: '#dcfce7',
+      },
+      {
+        name: 'Eucalyptus',
+        colors: ['#effdf5', '#fdf2f8', '#f8fafc'],
+        cloudTint: '#ecfdf5',
+      },
+      {
+        name: 'Teal Moss',
+        colors: ['#f0fdfa', '#fdf2f8', '#fefce8'],
+        cloudTint: '#f1f5f9',
+      },
+    ],
+  },
+  {
+    name: 'Ethereal/Cloudy',
+    themes: [
+      {
+        name: 'Pearl Fog',
+        colors: ['#fafafa', '#fdf2f8', '#f0f9ff'],
+        cloudTint: '#ffffff',
+      },
+      {
+        name: 'Quartz Fog',
+        colors: ['#f8fafc', '#fdf2f8', '#f5f3ff'],
+        cloudTint: '#f5f3ff',
+      },
+      {
+        name: 'Milky Lilac',
+        colors: ['#ffffff', '#f5f3ff', '#fff7ed'],
+        cloudTint: '#ffffff',
+      },
+    ],
+  },
+];
+
+const ALL_THEMES = THEME_CATEGORIES.flatMap((c) => c.themes);
+
 type DreamTrack = { label: string; artist: string; src: string };
 const musicModules = import.meta.glob('./assets/music/*.{mp3,wav,ogg,m4a,aac,flac}', {
   eager: true,
@@ -51,7 +177,7 @@ function DriftingCloud({ startX, startY, startZ, scale, tint }: DriftingCloudPro
   );
 }
 
-function DriftingClouds() {
+function DriftingClouds({ cloudTint }: { cloudTint: string }) {
   const cloudField = useMemo(
     () => [
       {
@@ -60,7 +186,7 @@ function DriftingClouds() {
         startZ: -17,
         speed: 0.68,
         scale: 1.85,
-        tint: '#dbeafe',
+        tint: cloudTint,
         phase: 0.1,
       },
       {
@@ -69,7 +195,7 @@ function DriftingClouds() {
         startZ: -13,
         speed: 0.62,
         scale: 1.55,
-        tint: '#f5d0fe',
+        tint: cloudTint,
         phase: 1.3,
       },
       {
@@ -78,7 +204,7 @@ function DriftingClouds() {
         startZ: -19,
         speed: 0.56,
         scale: 2.2,
-        tint: '#bfdbfe',
+        tint: cloudTint,
         phase: 2.1,
       },
       {
@@ -87,7 +213,7 @@ function DriftingClouds() {
         startZ: -15,
         speed: 0.66,
         scale: 1.72,
-        tint: '#ddd6fe',
+        tint: cloudTint,
         phase: 2.9,
       },
       {
@@ -96,7 +222,7 @@ function DriftingClouds() {
         startZ: -21,
         speed: 0.5,
         scale: 2.45,
-        tint: '#e0f2fe',
+        tint: cloudTint,
         phase: 3.6,
       },
       {
@@ -105,7 +231,7 @@ function DriftingClouds() {
         startZ: -16,
         speed: 0.58,
         scale: 1.65,
-        tint: '#fae8ff',
+        tint: cloudTint,
         phase: 4.2,
       },
       {
@@ -114,7 +240,7 @@ function DriftingClouds() {
         startZ: -18,
         speed: 0.64,
         scale: 1.95,
-        tint: '#dbeafe',
+        tint: cloudTint,
         phase: 5.1,
       },
       {
@@ -123,7 +249,7 @@ function DriftingClouds() {
         startZ: -14,
         speed: 0.52,
         scale: 1.4,
-        tint: '#f0abfc',
+        tint: cloudTint,
         phase: 6.3,
       },
       {
@@ -132,11 +258,11 @@ function DriftingClouds() {
         startZ: -20,
         speed: 0.6,
         scale: 2.1,
-        tint: '#bae6fd',
+        tint: cloudTint,
         phase: 7.0,
       },
     ],
-    []
+    [cloudTint]
   );
 
   return (
@@ -221,7 +347,9 @@ export default function DreamTransmission() {
   const [boostActive, setBoostActive] = useState(false);
   const [wordIndex, setWordIndex] = useState(0);
   const [trackIndex, setTrackIndex] = useState(0);
+  const [themeIndex, setThemeIndex] = useState(1); // Default to Lilac Blush
   const [playerMode, setPlayerMode] = useState<PlayerMode>('normal');
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [comets, setComets] = useState<
     Array<{
       id: number;
@@ -374,8 +502,132 @@ export default function DreamTransmission() {
     shouldResumeOnTrackChangeRef.current = false;
   }, [trackIndex, ensureAudioBoost]);
 
+  const currentTheme = ALL_THEMES[themeIndex];
+
   return (
-    <div className='w-full h-screen bg-linear-to-b from-[#e0f2fe] via-[#fbcfe8] to-[#e0f2fe] relative overflow-hidden'>
+    <div
+      className='w-full h-screen relative overflow-hidden transition-all duration-1000'
+      style={{
+        background: `linear-gradient(to bottom, ${currentTheme.colors[0]}, ${currentTheme.colors[1]}, ${currentTheme.colors[2]})`,
+      }}
+    >
+      {/* Top-Left Wake Up Button */}
+      <div className='absolute top-6 left-6 z-30'>
+        <Link
+          to='/'
+          className='bg-white/25 backdrop-blur-xl border border-white/20 px-5 py-2.5 rounded-full text-slate-700/80 uppercase tracking-widest text-[10px] hover:bg-white/45 transition-all shadow-lg hover:scale-105 duration-300'
+        >
+          Wake Up
+        </Link>
+      </div>
+
+      {/* Theme Picker Widget (Bottom-Left) */}
+      <div className='absolute left-4 bottom-4 z-30 sm:left-6 sm:bottom-6'>
+        <AnimatePresence>
+          {showThemePicker && (
+            <>
+              {/* Click-outside overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowThemePicker(false)}
+                className='fixed inset-0 z-10'
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                className='relative z-20 mb-4 w-[min(90vw,32rem)] max-h-[70vh] overflow-y-auto rounded-3xl border border-white/45 bg-white/35 p-5 shadow-2xl backdrop-blur-2xl custom-scrollbar'
+              >
+                <div className='flex items-center justify-between mb-4'>
+                  <h3 className='text-xs font-bold uppercase tracking-widest text-slate-700/60'>
+                    Atmosphere
+                  </h3>
+                  <button
+                    type='button'
+                    onClick={() => setShowThemePicker(false)}
+                    className='text-[10px] uppercase tracking-widest text-slate-500 hover:text-slate-800'
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className='space-y-6'>
+                  {THEME_CATEGORIES.map((cat) => (
+                    <div key={cat.name}>
+                      <h4 className='text-[10px] uppercase tracking-[0.2em] text-slate-500 mb-3 ml-1'>
+                        {cat.name}
+                      </h4>
+                      <div className='grid grid-cols-2 sm:grid-cols-3 gap-2'>
+                        {cat.themes.map((theme) => {
+                          const globalIndex = ALL_THEMES.findIndex((t) => t.name === theme.name);
+                          const isSelected = themeIndex === globalIndex;
+                          return (
+                            <button
+                              key={theme.name}
+                              type='button'
+                              onClick={() => {
+                                setThemeIndex(globalIndex);
+                                setShowThemePicker(false); // Auto-close on selection
+                              }}
+                              className={`group relative p-3 rounded-2xl transition-all border ${
+                                isSelected
+                                  ? 'bg-white/60 border-white/60 shadow-md scale-105'
+                                  : 'bg-white/5 border-transparent hover:bg-white/20'
+                              }`}
+                            >
+                              <div className='flex gap-1 mb-2'>
+                                {theme.colors.map((c, i) => (
+                                  <div
+                                    key={`${theme.name}-${c}-${i}`}
+                                    className='w-3 h-3 rounded-full shadow-sm'
+                                    style={{ backgroundColor: c }}
+                                  />
+                                ))}
+                              </div>
+                              <p
+                                className={`text-[10px] font-medium truncate ${
+                                  isSelected ? 'text-slate-900' : 'text-slate-600'
+                                }`}
+                              >
+                                {theme.name}
+                              </p>
+                              {isSelected && (
+                                <div className='absolute top-2 right-2 w-1.5 h-1.5 bg-slate-400 rounded-full' />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        <button
+          type='button'
+          onClick={() => setShowThemePicker(!showThemePicker)}
+          className='flex items-center gap-2 bg-white/30 backdrop-blur-xl border border-white/20 p-3 rounded-2xl shadow-xl hover:bg-white/50 transition-all hover:scale-105 group'
+          title='Change Atmosphere'
+        >
+          <div className='flex -space-x-1.5'>
+            {currentTheme.colors.map((c, i) => (
+              <div
+                key={`trigger-${currentTheme.name}-${c}-${i}`}
+                className='w-4 h-4 rounded-full border border-white/40 shadow-sm'
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+          <span className='text-[10px] font-bold uppercase tracking-widest text-slate-700/60 ml-1 group-hover:text-slate-800 transition-colors'>
+            {currentTheme.name}
+          </span>
+        </button>
+      </div>
       <motion.div
         drag={playerMode === 'normal'}
         dragMomentum={false}
@@ -590,15 +842,7 @@ export default function DreamTransmission() {
         )}
       </motion.div>
 
-      {/* Soft overlay UI */}
-      <div className='absolute inset-x-0 bottom-28 flex justify-center z-20'>
-        <Link
-          to='/'
-          className='bg-white/30 backdrop-blur-md px-8 py-4 rounded-full text-slate-600 uppercase tracking-widest text-sm hover:bg-white/60 transition-all shadow-xl hover:scale-105 duration-300'
-        >
-          Wake Up
-        </Link>
-      </div>
+      {/* Wake Up Button removed from here (now at top-left) */}
 
       <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center pointer-events-none'>
         <motion.h1
@@ -641,7 +885,7 @@ export default function DreamTransmission() {
         <ambientLight intensity={0.8} />
         <pointLight position={[10, 10, 10]} intensity={1} color='#fff' />
 
-        <DriftingClouds />
+        <DriftingClouds cloudTint={currentTheme.cloudTint} />
 
         <Stars radius={200} depth={50} count={1000} factor={4} saturation={0} fade speed={0.5} />
 
