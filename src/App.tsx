@@ -166,42 +166,47 @@ type DriftingCloudProps = {
 
 function DriftingCloud({ startX, startY, startZ, speed, scale, tint, phase }: DriftingCloudProps) {
   const cloudRef = useRef<THREE.Group>(null);
-  const [opacity, setOpacity] = useState(0);
+  const baseOpacity = Math.min(0.58, 0.4 + scale * 0.08);
 
   useFrame((state) => {
     if (!cloudRef.current) return;
 
-    // Smooth horizontal drift with modulo for seamless looping
     const elapsed = state.clock.elapsedTime;
-    // Range is 50 units (-25 to 25)
-    const range = 50;
-    const offset = (elapsed * speed + phase * 10) % range;
-    cloudRef.current.position.x = -25 + offset;
+    // Drift from right to left across a 60-unit range (-30 to 30)
+    const range = 60;
+    const offset = (elapsed * speed + phase * range) % range;
+    const xPos = -30 + offset;
+    cloudRef.current.position.x = xPos;
 
     // Gentle vertical float
-    const floatY = Math.sin(elapsed * 0.3 + phase) * 0.5;
+    const floatY = Math.sin(elapsed * 0.15 + phase) * 0.4;
     cloudRef.current.position.y = startY + floatY;
 
-    // Calculate opacity based on position (Fade in at -25, Fade out at +25)
-    const xPos = cloudRef.current.position.x;
-    const fadeInEnd = -15;
-    const fadeOutStart = 15;
-
-    let newOpacity = Math.min(0.58, 0.4 + scale * 0.08);
+    // Fade in/out at edges — apply directly to materials (no React re-render)
+    const fadeInEnd = -20;
+    const fadeOutStart = 20;
+    let targetOpacity = baseOpacity;
 
     if (xPos < fadeInEnd) {
-      newOpacity *= Math.max(0, (xPos - -25) / (fadeInEnd - -25));
+      targetOpacity *= Math.max(0, (xPos + 30) / (fadeInEnd + 30));
     } else if (xPos > fadeOutStart) {
-      newOpacity *= Math.max(0, 1 - (xPos - fadeOutStart) / (25 - fadeOutStart));
+      targetOpacity *= Math.max(0, 1 - (xPos - fadeOutStart) / (30 - fadeOutStart));
     }
 
-    setOpacity(newOpacity);
+    // Traverse cloud children and set material opacity directly
+    cloudRef.current.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh && mesh.material) {
+        const mat = mesh.material as THREE.Material;
+        mat.opacity = targetOpacity;
+      }
+    });
   });
 
   return (
     <group ref={cloudRef} position={[startX, startY, startZ]}>
       <Cloud
-        opacity={opacity}
+        opacity={baseOpacity}
         speed={0}
         bounds={[8.4 * scale, 1.5, 2]}
         segments={28}
