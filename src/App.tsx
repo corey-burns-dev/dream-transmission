@@ -313,24 +313,28 @@ function DriftingClouds({ cloudTint }: { cloudTint: string }) {
   );
 }
 
+import ambientRainSrc from './assets/music/ambient-rain.mp3';
+import ambientWavesSrc from './assets/music/ambient-waves.mp3';
+import ambientWindSrc from './assets/music/ambient-wind.mp3';
+
 const AMBIENT_LAYERS = [
   {
     id: 'rain',
     label: 'Rain',
     icon: CloudRain,
-    src: 'https://cdn.freesound.org/previews/243/243629_4210609-lq.mp3',
+    src: ambientRainSrc,
   },
   {
     id: 'wind',
     label: 'Wind',
     icon: Wind,
-    src: 'https://cdn.freesound.org/previews/173/173930_3197664-lq.mp3',
+    src: ambientWindSrc,
   },
   {
     id: 'waves',
     label: 'Waves',
     icon: Waves,
-    src: 'https://cdn.freesound.org/previews/411/411460_5121236-lq.mp3',
+    src: ambientWavesSrc,
   },
 ];
 
@@ -755,82 +759,88 @@ export default function DreamTransmission() {
               >
                 Next
               </button>
+
+              <div className='flex items-center gap-1 ml-auto'>
+                {AMBIENT_LAYERS.map((layer) => {
+                  const Icon = layer.icon;
+                  const isActive = ambientLayers[layer.id].active;
+                  return (
+                    <div
+                      key={layer.id}
+                      className={`flex items-center gap-1 px-1.5 py-1 rounded-full border transition-all shrink-0 ${
+                        isActive
+                          ? 'bg-white/45 border-white/60 shadow-sm'
+                          : 'bg-white/5 border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <button
+                        type='button'
+                        onClick={() =>
+                          setAmbientLayers((prev) => ({
+                            ...prev,
+                            [layer.id]: {
+                              ...prev[layer.id],
+                              active: !isActive,
+                            },
+                          }))
+                        }
+                        className={`p-1 rounded-full transition-colors ${
+                          isActive ? 'text-slate-800' : 'text-slate-600'
+                        }`}
+                        title={`Toggle ${layer.label}`}
+                      >
+                        <Icon size={12} />
+                      </button>
+                      {isActive && (
+                        <input
+                          type='range'
+                          min='0'
+                          max='1'
+                          step='0.01'
+                          value={ambientLayers[layer.id].volume}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setAmbientLayers((prev) => ({
+                              ...prev,
+                              [layer.id]: { ...prev[layer.id], volume: val },
+                            }));
+                          }}
+                          className='w-10 h-1 accent-slate-600 cursor-pointer'
+                          title={`${layer.label} Volume`}
+                        />
+                      )}
+                      <audio
+                        ref={(el) => {
+                          ambientRefs.current[layer.id] = el;
+                        }}
+                        src={layer.src}
+                        loop
+                        preload='auto'
+                        title={`${layer.label} Ambient`}
+                      >
+                        <track kind='captions' />
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className='mt-2'>
               <audio
                 ref={audioRef}
                 controls
                 preload='metadata'
                 onPlay={handleAudioPlay}
                 onEnded={goToNextTrack}
-                className='h-8 flex-1 min-w-0 opacity-90'
+                className='h-8 w-full opacity-90'
                 src={dreamTracks[trackIndex]?.src}
                 title={dreamTracks[trackIndex]?.label}
               >
                 <track kind='captions' />
                 Your browser does not support the audio element.
               </audio>
-            </div>
-
-            <div className='flex items-center gap-1 mt-3 overflow-x-auto pb-1 no-scrollbar'>
-              {AMBIENT_LAYERS.map((layer) => {
-                const Icon = layer.icon;
-                const isActive = ambientLayers[layer.id].active;
-                return (
-                  <div
-                    key={layer.id}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all shrink-0 ${
-                      isActive
-                        ? 'bg-white/45 border-white/60 shadow-sm'
-                        : 'bg-white/5 border-transparent opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <button
-                      type='button'
-                      onClick={() =>
-                        setAmbientLayers((prev) => ({
-                          ...prev,
-                          [layer.id]: { ...prev[layer.id], active: !isActive },
-                        }))
-                      }
-                      className={`p-1 rounded-full transition-colors ${
-                        isActive ? 'text-slate-800' : 'text-slate-600'
-                      }`}
-                      title={`Toggle ${layer.label}`}
-                    >
-                      <Icon size={12} />
-                    </button>
-                    {isActive && (
-                      <input
-                        type='range'
-                        min='0'
-                        max='1'
-                        step='0.01'
-                        value={ambientLayers[layer.id].volume}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
-                          setAmbientLayers((prev) => ({
-                            ...prev,
-                            [layer.id]: { ...prev[layer.id], volume: val },
-                          }));
-                        }}
-                        className='w-10 h-1 accent-slate-600 cursor-pointer'
-                        title={`${layer.label} Volume`}
-                      />
-                    )}
-                    <audio
-                      ref={(el) => {
-                        ambientRefs.current[layer.id] = el;
-                      }}
-                      src={layer.src}
-                      loop
-                      preload='auto'
-                      title={`${layer.label} Ambient`}
-                    >
-                      <track kind='captions' />
-                      Your browser does not support the audio element.
-                    </audio>
-                  </div>
-                );
-              })}
             </div>
           </>
         )}
