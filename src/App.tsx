@@ -2,7 +2,7 @@ import { Cloud, Stars } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { EffectComposer, TiltShift2 } from '@react-three/postprocessing';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CloudRain, List, Maximize2, Minimize2, Waves, Wind } from 'lucide-react';
+import { CloudRain, List, Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type * as THREE from 'three';
@@ -313,36 +313,21 @@ function DriftingClouds({ cloudTint }: { cloudTint: string }) {
   );
 }
 
-import ambientRainSrc from './assets/music/ambient-rain.mp3';
-import ambientWavesSrc from './assets/music/ambient-waves.mp3';
-import ambientWindSrc from './assets/music/ambient-wind.mp3';
+import ambientRainLittleStorm from './assets/ambient/audiopapkin-rain-and-little-storm-298087.mp3';
+import ambientRainThunder from './assets/ambient/freesound_community-rain-and-thunder-16705.mp3';
+import ambientRainStorm from './assets/ambient/rain-storm.mp3';
 
-const AMBIENT_LAYERS = [
-  {
-    id: 'rain',
-    label: 'Rain',
-    icon: CloudRain,
-    src: ambientRainSrc,
-  },
-  {
-    id: 'wind',
-    label: 'Wind',
-    icon: Wind,
-    src: ambientWindSrc,
-  },
-  {
-    id: 'waves',
-    label: 'Waves',
-    icon: Waves,
-    src: ambientWavesSrc,
-  },
+const AMBIENT_SOUNDS = [
+  { label: 'Rain Storm', src: ambientRainStorm, icon: CloudRain },
+  { label: 'Rain & Thunder', src: ambientRainThunder, icon: CloudRain },
+  { label: 'Light Rain', src: ambientRainLittleStorm, icon: CloudRain },
 ];
 
 type PlayerMode = 'minimized' | 'normal' | 'maximized';
 
 export default function DreamTransmission() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const ambientRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  const ambientRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioBoostReadyRef = useRef(false);
   const shouldResumeOnTrackChangeRef = useRef(false);
@@ -363,13 +348,9 @@ export default function DreamTransmission() {
       duration: number;
     }>
   >([]);
-  const [ambientLayers, setAmbientLayers] = useState<
-    Record<string, { active: boolean; volume: number }>
-  >({
-    rain: { active: false, volume: 0.5 },
-    wind: { active: false, volume: 0.5 },
-    waves: { active: false, volume: 0.5 },
-  });
+  // -1 = off, 0/1/2 = index into AMBIENT_SOUNDS
+  const [ambientIndex, setAmbientIndex] = useState(-1);
+  const [ambientVolume, setAmbientVolume] = useState(0.5);
 
   const ensureAudioBoost = useMemo(() => {
     return () => {
@@ -427,18 +408,18 @@ export default function DreamTransmission() {
   }, []);
 
   useEffect(() => {
-    for (const layer of AMBIENT_LAYERS) {
-      const audio = ambientRefs.current[layer.id];
-      if (audio) {
-        audio.volume = ambientLayers[layer.id].volume;
-        if (ambientLayers[layer.id].active) {
-          void audio.play().catch(() => {});
-        } else {
-          audio.pause();
-        }
-      }
+    const audio = ambientRef.current;
+    if (!audio) return;
+    if (ambientIndex >= 0) {
+      audio.src = AMBIENT_SOUNDS[ambientIndex].src;
+      audio.volume = ambientVolume;
+      audio.loop = true;
+      void audio.play().catch(() => {});
+    } else {
+      audio.pause();
+      audio.src = '';
     }
-  }, [ambientLayers]);
+  }, [ambientIndex, ambientVolume]);
 
   useEffect(() => {
     const spawnComet = () => {
@@ -760,71 +741,46 @@ export default function DreamTransmission() {
                 Next
               </button>
 
-              <div className='flex items-center gap-1 ml-auto'>
-                {AMBIENT_LAYERS.map((layer) => {
-                  const Icon = layer.icon;
-                  const isActive = ambientLayers[layer.id].active;
-                  return (
-                    <div
-                      key={layer.id}
-                      className={`flex items-center gap-1 px-1.5 py-1 rounded-full border transition-all shrink-0 ${
-                        isActive
-                          ? 'bg-white/45 border-white/60 shadow-sm'
-                          : 'bg-white/5 border-transparent opacity-60 hover:opacity-100'
-                      }`}
-                    >
-                      <button
-                        type='button'
-                        onClick={() =>
-                          setAmbientLayers((prev) => ({
-                            ...prev,
-                            [layer.id]: {
-                              ...prev[layer.id],
-                              active: !isActive,
-                            },
-                          }))
-                        }
-                        className={`p-1 rounded-full transition-colors ${
-                          isActive ? 'text-slate-800' : 'text-slate-600'
-                        }`}
-                        title={`Toggle ${layer.label}`}
-                      >
-                        <Icon size={12} />
-                      </button>
-                      {isActive && (
-                        <input
-                          type='range'
-                          min='0'
-                          max='1'
-                          step='0.01'
-                          value={ambientLayers[layer.id].volume}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setAmbientLayers((prev) => ({
-                              ...prev,
-                              [layer.id]: { ...prev[layer.id], volume: val },
-                            }));
-                          }}
-                          className='w-10 h-1 accent-slate-600 cursor-pointer'
-                          title={`${layer.label} Volume`}
-                        />
-                      )}
-                      <audio
-                        ref={(el) => {
-                          ambientRefs.current[layer.id] = el;
-                        }}
-                        src={layer.src}
-                        loop
-                        preload='auto'
-                        title={`${layer.label} Ambient`}
-                      >
-                        <track kind='captions' />
-                        Your browser does not support the audio element.
-                      </audio>
-                    </div>
-                  );
-                })}
+              <div className='flex items-center gap-1.5 ml-auto'>
+                <button
+                  type='button'
+                  onClick={() =>
+                    setAmbientIndex((prev) => (prev >= AMBIENT_SOUNDS.length - 1 ? -1 : prev + 1))
+                  }
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all ${
+                    ambientIndex >= 0
+                      ? 'bg-white/45 border-white/60 shadow-sm text-slate-800'
+                      : 'bg-white/5 border-transparent opacity-60 hover:opacity-100 text-slate-600'
+                  }`}
+                  title={
+                    ambientIndex >= 0
+                      ? `Playing: ${AMBIENT_SOUNDS[ambientIndex].label} — click to cycle`
+                      : 'Enable ambient sounds'
+                  }
+                >
+                  <CloudRain size={12} />
+                  {ambientIndex >= 0 && (
+                    <span className='text-[9px] uppercase tracking-wider'>
+                      {AMBIENT_SOUNDS[ambientIndex].label}
+                    </span>
+                  )}
+                </button>
+                {ambientIndex >= 0 && (
+                  <input
+                    type='range'
+                    min='0'
+                    max='1'
+                    step='0.01'
+                    value={ambientVolume}
+                    onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
+                    className='w-12 h-1 accent-slate-600 cursor-pointer'
+                    title='Ambient Volume'
+                  />
+                )}
               </div>
+              <audio ref={ambientRef} preload='auto' title='Ambient Sound'>
+                <track kind='captions' />
+              </audio>
             </div>
 
             <div className='mt-2'>
