@@ -5,9 +5,15 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CloudRain, List, Maximize2, Minimize2, Waves, Wind } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 
 const dreamWords = ['Relax', 'Breathe', 'Peace', 'Unwind', 'Stillness', 'Drift'];
+
+type Theme = {
+  name: string;
+  colors: string[]; // [from, via, to]
+  cloudTint: string;
+};
 
 const THEME_CATEGORIES = [
   {
@@ -171,28 +177,31 @@ function DriftingCloud({ startX, startY, startZ, speed, scale, tint, phase }: Dr
   useFrame((state) => {
     if (!cloudRef.current) return;
 
-    // Smooth horizontal drift with modulo for seamless looping
+    // Smooth horizontal drift
     const elapsed = state.clock.elapsedTime;
-    // Range is 50 units (-25 to 25)
-    const range = 50;
-    const offset = (elapsed * speed + phase * 10) % range;
-    cloudRef.current.position.x = -25 + offset;
+    const offsetX = (elapsed * speed + phase) % 40;
+    cloudRef.current.position.x = startX + offsetX;
 
     // Gentle vertical float
     const floatY = Math.sin(elapsed * 0.3 + phase) * 0.5;
     cloudRef.current.position.y = startY + floatY;
 
-    // Calculate opacity based on position (Fade in at -25, Fade out at +25)
+    // Calculate opacity based on position
     const xPos = cloudRef.current.position.x;
-    const fadeInEnd = -15;
-    const fadeOutStart = 15;
+    const fadeInStart = startX;
+    const fadeInEnd = startX + 5;
+    const fadeOutStart = startX + 25;
+    const fadeOutEnd = startX + 35;
 
     let newOpacity = Math.min(0.58, 0.4 + scale * 0.08);
 
+    // Fade in
     if (xPos < fadeInEnd) {
-      newOpacity *= Math.max(0, (xPos - -25) / (fadeInEnd - -25));
-    } else if (xPos > fadeOutStart) {
-      newOpacity *= Math.max(0, 1 - (xPos - fadeOutStart) / (25 - fadeOutStart));
+      newOpacity *= Math.max(0, (xPos - fadeInStart) / (fadeInEnd - fadeInStart));
+    }
+    // Fade out
+    else if (xPos > fadeOutStart) {
+      newOpacity *= Math.max(0, 1 - (xPos - fadeOutStart) / (fadeOutEnd - fadeOutStart));
     }
 
     setOpacity(newOpacity);
@@ -293,7 +302,7 @@ function DriftingClouds({ cloudTint }: { cloudTint: string }) {
         speed: 0.6,
         scale: 2.1,
         tint: cloudTint,
-        phase: 7.0,
+        phase: 7.8,
       },
     ],
     [cloudTint]
@@ -301,49 +310,24 @@ function DriftingClouds({ cloudTint }: { cloudTint: string }) {
 
   return (
     <>
-      {cloudField.map((cloud) => (
-        <DriftingCloud key={`${cloud.startX}-${cloud.startY}-${cloud.startZ}`} {...cloud} />
+      {cloudField.map((cloud, i) => (
+        <DriftingCloud key={i} {...cloud} />
       ))}
     </>
   );
 }
 
 const AMBIENT_LAYERS = [
-  {
-    id: 'rain',
-    label: 'Rain',
-    icon: CloudRain,
-    src: 'https://cdn.freesound.org/previews/243/243629_4210609-lq.mp3',
-  },
-  {
-    id: 'wind',
-    label: 'Wind',
-    icon: Wind,
-    src: 'https://cdn.freesound.org/previews/173/173930_3197664-lq.mp3',
-  },
-  {
-    id: 'waves',
-    label: 'Waves',
-    icon: Waves,
-    src: 'https://cdn.freesound.org/previews/411/411460_5121236-lq.mp3',
-  },
+  { id: 'rain', label: 'Rain', icon: CloudRain, src: '/assets/ambient/rain.mp3' },
+  { id: 'ocean', label: 'Ocean', icon: Waves, src: '/assets/ambient/ocean.mp3' },
+  { id: 'wind', label: 'Wind', icon: Wind, src: '/assets/ambient/wind.mp3' },
 ];
 
-type PlayerMode = 'minimized' | 'normal' | 'maximized';
-
-export default function DreamTransmission() {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const ambientRefs = useRef<Record<string, HTMLAudioElement | null>>({});
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioBoostReadyRef = useRef(false);
-  const shouldResumeOnTrackChangeRef = useRef(false);
-  const cometIdRef = useRef(0);
-  const cometCleanupTimersRef = useRef<number[]>([]);
-  const [boostActive, setBoostActive] = useState(false);
-  const [wordIndex, setWordIndex] = useState(0);
+export default function App() {
+  const [currentTheme, setCurrentTheme] = useState<Theme>(ALL_THEMES[0]);
   const [trackIndex, setTrackIndex] = useState(0);
-  const [themeIndex, setThemeIndex] = useState(1); // Default to Lilac Blush
-  const [playerMode, setPlayerMode] = useState<PlayerMode>('normal');
+  const [wordIndex, setWordIndex] = useState(0);
+  const [playerMode, setPlayerMode] = useState<'hidden' | 'minimized' | 'maximized'>('hidden');
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [comets, setComets] = useState<
     Array<{
@@ -354,318 +338,194 @@ export default function DreamTransmission() {
       duration: number;
     }>
   >([]);
-  const [ambientLayers, setAmbientLayers] = useState<
-    Record<string, { active: boolean; volume: number }>
-  >({
-    rain: { active: false, volume: 0.5 },
-    wind: { active: false, volume: 0.5 },
-    waves: { active: false, volume: 0.5 },
-  });
 
-  const ensureAudioBoost = useMemo(() => {
-    return () => {
-      if (audioBoostReadyRef.current || typeof window === 'undefined') return;
-      const audio = audioRef.current;
-      if (!audio || !window.AudioContext) return;
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const ambientRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  const [ambientLayers, setAmbientLayers] = useState(
+    Object.fromEntries(AMBIENT_LAYERS.map((layer) => [layer.id, { active: false, volume: 0.5 }]))
+  );
 
-      const context = new window.AudioContext();
-      const source = context.createMediaElementSource(audio);
-      const gain = context.createGain();
-
-      gain.gain.value = 2.2;
-      source.connect(gain);
-      gain.connect(context.destination);
-
-      audioContextRef.current = context;
-      audioBoostReadyRef.current = true;
-    };
-  }, []);
-
-  async function handleAudioPlay() {
-    ensureAudioBoost();
-    setBoostActive(true);
-    const context = audioContextRef.current;
-    if (context && context.state === 'suspended') {
-      await context.resume();
-    }
-  }
+  const [boostActive, setBoostActive] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.volume = 1;
-    audio.muted = false;
+    const wordInterval = setInterval(() => {
+      setWordIndex((i) => (i + 1) % dreamWords.length);
+    }, 6000);
+    return () => clearInterval(wordInterval);
   }, []);
 
   useEffect(() => {
-    const timers = cometCleanupTimersRef.current;
-    return () => {
-      if (audioContextRef.current) {
-        void audioContextRef.current.close();
-      }
-      timers.forEach((timerId) => {
-        window.clearTimeout(timerId);
-      });
-    };
+    const cometInterval = setInterval(() => {
+      const id = Date.now();
+      const top = Math.random() * 60;
+      const left = 80 + Math.random() * 20;
+      const width = 60 + Math.random() * 120;
+      const duration = 1800 + Math.random() * 1500;
+      setComets((prev) => [...prev, { id, top, left, width, duration }]);
+      setTimeout(() => setComets((prev) => prev.filter((c) => c.id !== id)), duration);
+    }, 3000);
+    return () => clearInterval(cometInterval);
   }, []);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setWordIndex((prev) => (prev + 1) % dreamWords.length);
-    }, 20000);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    for (const layer of AMBIENT_LAYERS) {
-      const audio = ambientRefs.current[layer.id];
+    Object.entries(ambientLayers).forEach(([layerId, { active, volume }]) => {
+      const audio = ambientRefs.current[layerId];
       if (audio) {
-        audio.volume = ambientLayers[layer.id].volume;
-        if (ambientLayers[layer.id].active) {
-          void audio.play().catch(() => {});
-        } else {
+        audio.volume = volume;
+        if (active && audio.paused) {
+          audio.play().catch((err) => console.error(`Ambient play error (${layerId}):`, err));
+        } else if (!active && !audio.paused) {
           audio.pause();
         }
       }
-    }
+    });
   }, [ambientLayers]);
 
-  useEffect(() => {
-    const spawnComet = () => {
-      const id = ++cometIdRef.current;
-      const comet = {
-        id,
-        top: 8 + Math.random() * 44,
-        left: 72 + Math.random() * 24,
-        width: 90 + Math.random() * 120,
-        duration: 1200 + Math.random() * 1600,
-      };
-      setComets((prev) => [...prev, comet]);
-
-      const cleanupId = window.setTimeout(() => {
-        setComets((prev) => prev.filter((item) => item.id !== id));
-      }, comet.duration + 260);
-      cometCleanupTimersRef.current.push(cleanupId);
-    };
-
-    const initialSpawnDelay = window.setTimeout(spawnComet, Math.random() * 60000);
-    const recurringSpawn = window.setInterval(spawnComet, 60000);
-
-    return () => {
-      window.clearTimeout(initialSpawnDelay);
-      window.clearInterval(recurringSpawn);
-    };
-  }, []);
-
-  function selectTrack(nextTrackIndex: number) {
-    if (dreamTracks.length === 0) return;
-    const audio = audioRef.current;
-    shouldResumeOnTrackChangeRef.current = Boolean(audio && !audio.paused);
-    setTrackIndex(nextTrackIndex);
-  }
-
-  function goToPreviousTrack() {
-    if (dreamTracks.length === 0) return;
-    selectTrack((trackIndex - 1 + dreamTracks.length) % dreamTracks.length);
-  }
-
-  function goToNextTrack() {
-    if (dreamTracks.length === 0) return;
-    selectTrack((trackIndex + 1) % dreamTracks.length);
-  }
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    const activeTrack = dreamTracks[trackIndex];
-    if (!audio || !activeTrack) return;
-    audio.load();
-    audio.currentTime = 0;
-
-    if (shouldResumeOnTrackChangeRef.current) {
-      ensureAudioBoost();
-      const context = audioContextRef.current;
-      const resumePromise =
-        context && context.state === 'suspended' ? context.resume() : Promise.resolve();
-
-      void resumePromise.then(() => {
-        void audio.play().catch(() => {
-          // Ignore autoplay promise rejections.
-        });
-      });
+  const handleAudioPlay = () => {
+    if (audioRef.current && !boostActive) {
+      if (!audioContextRef.current) {
+        const ctx = new AudioContext();
+        const gain = ctx.createGain();
+        const source = ctx.createMediaElementSource(audioRef.current);
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.value = 2.5;
+        audioContextRef.current = ctx;
+        gainNodeRef.current = gain;
+        sourceNodeRef.current = source;
+      }
+      setBoostActive(true);
     }
-    shouldResumeOnTrackChangeRef.current = false;
-  }, [trackIndex, ensureAudioBoost]);
+  };
 
-  const currentTheme = ALL_THEMES[themeIndex];
+  const goToNextTrack = () => {
+    if (dreamTracks.length === 0) return;
+    const nextIndex = (trackIndex + 1) % dreamTracks.length;
+    setTrackIndex(nextIndex);
+    setTimeout(() => {
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.play().catch((err) => console.error('Track switch error:', err));
+      }
+    }, 100);
+  };
+
+  const goToPreviousTrack = () => {
+    if (dreamTracks.length === 0) return;
+    const prevIndex = trackIndex === 0 ? dreamTracks.length - 1 : trackIndex - 1;
+    setTrackIndex(prevIndex);
+    setTimeout(() => {
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.play().catch((err) => console.error('Track switch error:', err));
+      }
+    }, 100);
+  };
+
+  const selectTrack = (index: number) => {
+    setTrackIndex(index);
+    setTimeout(() => {
+      if (audioRef.current) {
+        audioRef.current.play().catch((err) => console.error('Track select error:', err));
+      }
+    }, 100);
+  };
 
   return (
     <div
-      className='w-full h-screen relative overflow-hidden transition-all duration-1000'
+      className='relative w-full h-screen overflow-hidden'
       style={{
-        background: `linear-gradient(to bottom, ${currentTheme.colors[0]}, ${currentTheme.colors[1]}, ${currentTheme.colors[2]})`,
+        background: `linear-gradient(135deg, ${currentTheme.colors[0]} 0%, ${currentTheme.colors[1]} 50%, ${currentTheme.colors[2]} 100%)`,
+        transition: 'background 2s ease-in-out',
       }}
     >
-      {/* Top-Left Wake Up Button */}
-      <div className='absolute top-6 left-6 z-30'>
-        <Link
-          to='/'
-          className='bg-white/25 backdrop-blur-xl border border-white/20 px-5 py-2.5 rounded-full text-slate-700/80 uppercase tracking-widest text-[10px] hover:bg-white/45 transition-all shadow-lg hover:scale-105 duration-300'
-        >
-          Wake Up
-        </Link>
-      </div>
-
-      {/* Theme Picker Widget (Bottom-Left) */}
-      <div className='absolute left-4 bottom-4 z-30 sm:left-6 sm:bottom-6'>
-        <AnimatePresence>
-          {showThemePicker && (
-            <>
-              {/* Click-outside overlay */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowThemePicker(false)}
-                className='fixed inset-0 z-10'
-              />
-              <motion.div
-                initial={{ opacity: 0, y: 20, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                className='relative z-20 mb-4 w-[min(90vw,32rem)] max-h-[70vh] overflow-y-auto rounded-3xl border border-white/45 bg-white/35 p-5 shadow-2xl backdrop-blur-2xl custom-scrollbar'
-              >
-                <div className='flex items-center justify-between mb-4'>
-                  <h3 className='text-xs font-bold uppercase tracking-widest text-slate-700/60'>
-                    Atmosphere
-                  </h3>
-                  <button
-                    type='button'
-                    onClick={() => setShowThemePicker(false)}
-                    className='text-[10px] uppercase tracking-widest text-slate-500 hover:text-slate-800'
-                  >
-                    Close
-                  </button>
-                </div>
-
-                <div className='space-y-6'>
-                  {THEME_CATEGORIES.map((cat) => (
-                    <div key={cat.name}>
-                      <h4 className='text-[10px] uppercase tracking-[0.2em] text-slate-500 mb-3 ml-1'>
-                        {cat.name}
-                      </h4>
-                      <div className='grid grid-cols-2 sm:grid-cols-3 gap-2'>
-                        {cat.themes.map((theme) => {
-                          const globalIndex = ALL_THEMES.findIndex((t) => t.name === theme.name);
-                          const isSelected = themeIndex === globalIndex;
-                          return (
-                            <button
-                              key={theme.name}
-                              type='button'
-                              onClick={() => {
-                                setThemeIndex(globalIndex);
-                                setShowThemePicker(false); // Auto-close on selection
-                              }}
-                              className={`group relative p-3 rounded-2xl transition-all border ${
-                                isSelected
-                                  ? 'bg-white/60 border-white/60 shadow-md scale-105'
-                                  : 'bg-white/5 border-transparent hover:bg-white/20'
-                              }`}
-                            >
-                              <div className='flex gap-1 mb-2'>
-                                {theme.colors.map((c, i) => (
-                                  <div
-                                    key={`${theme.name}-${c}-${i}`}
-                                    className='w-3 h-3 rounded-full shadow-sm'
-                                    style={{ backgroundColor: c }}
-                                  />
-                                ))}
-                              </div>
-                              <p
-                                className={`text-[10px] font-medium truncate ${
-                                  isSelected ? 'text-slate-900' : 'text-slate-600'
-                                }`}
-                              >
-                                {theme.name}
-                              </p>
-                              {isSelected && (
-                                <div className='absolute top-2 right-2 w-1.5 h-1.5 bg-slate-400 rounded-full' />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-
-        <button
-          type='button'
-          onClick={() => setShowThemePicker(!showThemePicker)}
-          className='flex items-center gap-2 bg-white/30 backdrop-blur-xl border border-white/20 p-3 rounded-2xl shadow-xl hover:bg-white/50 transition-all hover:scale-105 group'
-          title='Change Atmosphere'
-        >
-          <div className='flex -space-x-1.5'>
-            {currentTheme.colors.map((c, i) => (
-              <div
-                key={`trigger-${currentTheme.name}-${c}-${i}`}
-                className='w-4 h-4 rounded-full border border-white/40 shadow-sm'
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
-          <span className='text-[10px] font-bold uppercase tracking-widest text-slate-700/60 ml-1 group-hover:text-slate-800 transition-colors'>
-            {currentTheme.name}
-          </span>
-        </button>
-      </div>
-      <motion.div
-        drag={playerMode === 'normal'}
-        dragMomentum={false}
-        animate={{
-          width:
-            playerMode === 'minimized' ? '14rem' : playerMode === 'maximized' ? '28rem' : '24rem',
-          height:
-            playerMode === 'minimized' ? 'auto' : playerMode === 'maximized' ? '30rem' : 'auto',
-        }}
-        className='absolute right-4 bottom-4 z-30 overflow-hidden rounded-2xl border border-white/45 bg-white/35 p-3 text-slate-700 shadow-2xl backdrop-blur-xl sm:right-6 sm:bottom-6'
-        style={{
-          resize: playerMode === 'normal' ? 'both' : 'none',
-          minWidth: playerMode === 'minimized' ? 'auto' : '16rem',
-          minHeight: playerMode === 'minimized' ? 'auto' : '8rem',
-        }}
+      <Link
+        to='/app-list'
+        className='absolute top-4 left-4 z-50 rounded-full border border-slate-700/35 bg-white/40 backdrop-blur-sm px-4 py-2 text-xs uppercase tracking-[0.16em] text-slate-800 transition hover:bg-white/65 hover:shadow-md'
       >
-        <div className='flex items-center justify-between mb-2'>
+        <List className='inline-block w-3 h-3 mr-1.5 -mt-0.5' />
+        Wake Up
+      </Link>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 1 }}
+        className={`absolute bottom-6 right-6 z-50 rounded-2xl border border-white/30 bg-white/25 backdrop-blur-md p-4 shadow-xl transition-all ${
+          playerMode === 'minimized'
+            ? 'w-52'
+            : playerMode === 'maximized'
+              ? 'w-80 max-h-[80vh]'
+              : 'w-52'
+        }`}
+      >
+        <div className='flex items-center justify-between mb-3'>
           <div className='flex items-center gap-2'>
-            <p className='text-[10px] uppercase tracking-[0.25em] text-slate-600/80'>
-              {playerMode === 'minimized' ? 'Dream' : 'Ambient Audio'}
-            </p>
+            <button
+              type='button'
+              onClick={() =>
+                setPlayerMode((m) =>
+                  m === 'hidden' ? 'minimized' : m === 'minimized' ? 'maximized' : 'minimized'
+                )
+              }
+              className='text-slate-600 hover:text-slate-900 transition'
+              title={playerMode === 'minimized' ? 'Expand Player' : 'Minimize Player'}
+            >
+              {playerMode === 'minimized' ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+            </button>
+            <span className='text-[10px] font-semibold uppercase tracking-widest text-slate-800/80'>
+              Dreamscape
+            </span>
           </div>
-          <div className='flex items-center gap-1.5'>
+          <div className='flex items-center gap-2'>
             <button
               type='button'
-              onClick={() => setPlayerMode(playerMode === 'minimized' ? 'normal' : 'minimized')}
-              className='p-1 rounded-full hover:bg-white/20 transition-colors'
-              title={playerMode === 'minimized' ? 'Restore' : 'Minimize'}
-            >
-              {playerMode === 'minimized' ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
-            </button>
-            <button
-              type='button'
-              onClick={() => setPlayerMode(playerMode === 'maximized' ? 'normal' : 'maximized')}
-              className='p-1 rounded-full hover:bg-white/20 transition-colors'
-              title={playerMode === 'maximized' ? 'Standard View' : 'Playlist'}
-            >
-              <List size={12} />
-            </button>
-            {playerMode !== 'minimized' && (
-              <span className='text-[10px] uppercase tracking-[0.16em] text-slate-700/80 ml-1'>
-                {dreamTracks.length > 0 ? `${trackIndex + 1}/${dreamTracks.length}` : '0/0'}
-              </span>
+              onClick={() => setShowThemePicker(!showThemePicker)}
+              className='w-5 h-5 rounded-full border-2 border-white/60 shadow-sm transition-transform hover:scale-110'
+              style={{
+                background: `linear-gradient(135deg, ${currentTheme.colors[0]}, ${currentTheme.colors[1]})`,
+              }}
+              title='Change Theme'
+            />
+            {showThemePicker && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className='absolute top-12 right-0 bg-white/90 backdrop-blur-lg rounded-xl shadow-2xl p-3 w-64 max-h-72 overflow-y-auto z-50'
+              >
+                {THEME_CATEGORIES.map((category) => (
+                  <div key={category.name} className='mb-3'>
+                    <p className='text-[9px] uppercase tracking-widest text-slate-600 mb-1.5 font-semibold'>
+                      {category.name}
+                    </p>
+                    <div className='flex flex-wrap gap-2'>
+                      {category.themes.map((theme) => (
+                        <button
+                          key={theme.name}
+                          type='button'
+                          onClick={() => {
+                            setCurrentTheme(theme);
+                            setShowThemePicker(false);
+                          }}
+                          className='flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-slate-100 transition-all text-left group'
+                          title={theme.name}
+                        >
+                          <span
+                            className='w-4 h-4 rounded-full border border-slate-300 shadow-sm shrink-0'
+                            style={{
+                              background: `linear-gradient(135deg, ${theme.colors[0]}, ${theme.colors[1]})`,
+                            }}
+                          />
+                          <span className='text-[10px] text-slate-700 group-hover:text-slate-900'>
+                            {theme.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
             )}
           </div>
         </div>
@@ -836,8 +696,6 @@ export default function DreamTransmission() {
           </p>
         )}
       </motion.div>
-
-      {/* Wake Up Button removed from here (now at top-left) */}
 
       <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-center pointer-events-none'>
         <motion.h1
