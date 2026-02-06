@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CloudRain, Waves, Wind } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 
 const dreamWords = ['Relax', 'Breathe', 'Peace', 'Unwind', 'Stillness', 'Drift'];
 type DreamTrack = { label: string; artist: string; src: string };
@@ -153,18 +153,30 @@ function AnimatedCloud(props: DriftingCloudProps) {
   const laneYRef = useRef(props.startY);
   const laneZRef = useRef(props.startZ);
 
+  useEffect(() => {
+    if (wrapper.current) {
+      wrapper.current.position.set(props.startX, props.startY, props.startZ);
+    }
+  }, [props.startX, props.startY, props.startZ]);
+
   useFrame((state, delta) => {
     if (!wrapper.current) return;
 
-    wrapper.current.position.x += props.speed * delta;
+    const speedEase = props.speed * (0.85 + Math.sin(state.clock.elapsedTime * 0.1) * 0.05);
+    wrapper.current.position.x += speedEase * delta;
+
     const bob = Math.sin(state.clock.elapsedTime * 0.13 + props.phase) * 0.45;
     wrapper.current.position.y = laneYRef.current + bob;
     wrapper.current.position.z = laneZRef.current;
 
     if (wrapper.current.position.x > 35) {
-      wrapper.current.position.x = -30 - Math.random() * 8;
-      laneYRef.current = laneYRef.current + (Math.random() - 0.5) * 2;
-      laneZRef.current = laneZRef.current + (Math.random() - 0.5) * 2;
+      wrapper.current.position.x = -40 - Math.random() * 10;
+      laneYRef.current = THREE.MathUtils.clamp(
+        laneYRef.current + (Math.random() - 0.5) * 1.5,
+        -8,
+        8
+      );
+      laneZRef.current = laneZRef.current + (Math.random() - 0.5) * 1;
     }
   });
 
@@ -361,7 +373,12 @@ export default function DreamTransmission() {
 
   return (
     <div className='w-full h-screen bg-linear-to-b from-[#e0f2fe] via-[#fbcfe8] to-[#e0f2fe] relative overflow-hidden'>
-      <div className='absolute right-4 bottom-4 z-30 w-[min(92vw,18rem)] rounded-2xl border border-white/45 bg-white/35 p-3 text-slate-700 shadow-2xl backdrop-blur-xl sm:right-6 sm:bottom-6'>
+      <motion.div
+        drag
+        dragMomentum={false}
+        className='absolute right-4 bottom-4 z-30 w-[min(92vw,24rem)] overflow-hidden rounded-2xl border border-white/45 bg-white/35 p-3 text-slate-700 shadow-2xl backdrop-blur-xl sm:right-6 sm:bottom-6'
+        style={{ resize: 'both', minWidth: '16rem', minHeight: '8rem' }}
+      >
         <div className='flex items-center justify-between mb-1'>
           <p className='text-[10px] uppercase tracking-[0.25em] text-slate-600/80'>Ambient Audio</p>
           <span className='text-[10px] uppercase tracking-[0.16em] text-slate-700/80'>
@@ -388,6 +405,7 @@ export default function DreamTransmission() {
             onClick={goToPreviousTrack}
             disabled={dreamTracks.length === 0}
             className='rounded-full border border-slate-700/35 bg-white/40 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-slate-800 transition hover:bg-white/65'
+            title='Previous Track'
           >
             Prev
           </button>
@@ -396,6 +414,7 @@ export default function DreamTransmission() {
             onClick={goToNextTrack}
             disabled={dreamTracks.length === 0}
             className='rounded-full border border-slate-700/35 bg-white/40 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-slate-800 transition hover:bg-white/65'
+            title='Next Track'
           >
             Next
           </button>
@@ -408,6 +427,7 @@ export default function DreamTransmission() {
             src={dreamTracks[trackIndex]?.src}
             title={dreamTracks[trackIndex]?.label}
           >
+            <track kind='captions' />
             Your browser does not support the audio element.
           </audio>
         </div>
@@ -465,7 +485,9 @@ export default function DreamTransmission() {
                   loop
                   preload='auto'
                   title={`${layer.label} Ambient`}
-                />
+                >
+                  <track kind='captions' />
+                </audio>
               </div>
             );
           })}
@@ -473,7 +495,7 @@ export default function DreamTransmission() {
         <p className='mt-1.5 text-[10px] text-slate-700/60 text-right italic'>
           {boostActive ? 'Boost: ON' : 'Play to boost audio'}
         </p>
-      </div>
+      </motion.div>
 
       {/* Soft overlay UI */}
       <div className='absolute inset-x-0 bottom-28 flex justify-center z-20'>
