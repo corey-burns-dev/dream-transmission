@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "generate-manifest": "if [ -d \"public/music\" ]; then bun scripts/generate-manifest.js; else echo \"Skipping manifest generation: public/music not found\"; fi",
+    "predev": "bun run generate-manifest",
+    "prebuild": "bun run generate-manifest",
     "dev": "vite",
     "build": "vite build",
     "build:worker": "vite build",

@@ -134,26 +134,6 @@ const THEME_CATEGORIES = [
 
 const ALL_THEMES = THEME_CATEGORIES.flatMap((c) => c.themes);
 
-type DreamTrack = { label: string; artist: string; src: string };
-const musicModules = import.meta.glob('./assets/music/*.{mp3,wav,ogg,m4a,aac,flac}', {
-  eager: true,
-  import: 'default',
-}) as Record<string, string>;
-
-const dreamTracks: DreamTrack[] = Object.entries(musicModules)
-  .map(([path, src]) => {
-    const filename = path.split('/').pop() ?? 'Unknown Track';
-    const baseName = filename.replace(/\.[^/.]+$/, '');
-    const [artistPart, ...titleParts] = baseName.split(' - ');
-    const hasArtist = titleParts.length > 0;
-    return {
-      label: hasArtist ? titleParts.join(' - ') : baseName,
-      artist: hasArtist ? artistPart : 'Ambient',
-      src,
-    };
-  })
-  .sort((a, b) => `${a.artist} ${a.label}`.localeCompare(`${b.artist} ${b.label}`));
-
 /* ── Twinkling Stars ─────────────────────────────────────────── */
 
 const STAR_COUNT = 2800;
@@ -335,8 +315,24 @@ function DriftingCloud({ startY, startZ, speed, scale, tint, phase }: DriftingCl
 const DriftingClouds = memo(function DriftingClouds({ cloudTint }: { cloudTint: string }) {
   const cloudField = useMemo(
     () => [
-      { startX: -14, startY: 5, startZ: -18, speed: 0.55, scale: 1.3, tint: cloudTint, phase: 0.0 },
-      { startX: 6, startY: 8, startZ: -22, speed: 0.42, scale: 1.6, tint: cloudTint, phase: 0.9 },
+      {
+        startX: -14,
+        startY: 5,
+        startZ: -18,
+        speed: 0.55,
+        scale: 1.3,
+        tint: cloudTint,
+        phase: 0.0,
+      },
+      {
+        startX: 6,
+        startY: 8,
+        startZ: -22,
+        speed: 0.42,
+        scale: 1.6,
+        tint: cloudTint,
+        phase: 0.9,
+      },
       {
         startX: -20,
         startY: -3,
@@ -346,12 +342,60 @@ const DriftingClouds = memo(function DriftingClouds({ cloudTint }: { cloudTint: 
         tint: cloudTint,
         phase: 1.6,
       },
-      { startX: 14, startY: 2, startZ: -20, speed: 0.48, scale: 1.4, tint: cloudTint, phase: 2.3 },
-      { startX: -6, startY: -7, startZ: -17, speed: 0.58, scale: 1.1, tint: cloudTint, phase: 3.1 },
-      { startX: 0, startY: 11, startZ: -24, speed: 0.38, scale: 1.7, tint: cloudTint, phase: 3.8 },
-      { startX: 10, startY: -5, startZ: -16, speed: 0.62, scale: 0.9, tint: cloudTint, phase: 4.5 },
-      { startX: -16, startY: 3, startZ: -19, speed: 0.52, scale: 1.2, tint: cloudTint, phase: 5.2 },
-      { startX: 18, startY: 7, startZ: -21, speed: 0.45, scale: 1.5, tint: cloudTint, phase: 5.9 },
+      {
+        startX: 14,
+        startY: 2,
+        startZ: -20,
+        speed: 0.48,
+        scale: 1.4,
+        tint: cloudTint,
+        phase: 2.3,
+      },
+      {
+        startX: -6,
+        startY: -7,
+        startZ: -17,
+        speed: 0.58,
+        scale: 1.1,
+        tint: cloudTint,
+        phase: 3.1,
+      },
+      {
+        startX: 0,
+        startY: 11,
+        startZ: -24,
+        speed: 0.38,
+        scale: 1.7,
+        tint: cloudTint,
+        phase: 3.8,
+      },
+      {
+        startX: 10,
+        startY: -5,
+        startZ: -16,
+        speed: 0.62,
+        scale: 0.9,
+        tint: cloudTint,
+        phase: 4.5,
+      },
+      {
+        startX: -16,
+        startY: 3,
+        startZ: -19,
+        speed: 0.52,
+        scale: 1.2,
+        tint: cloudTint,
+        phase: 5.2,
+      },
+      {
+        startX: 18,
+        startY: 7,
+        startZ: -21,
+        speed: 0.45,
+        scale: 1.5,
+        tint: cloudTint,
+        phase: 5.9,
+      },
       {
         startX: -10,
         startY: -9,
@@ -361,13 +405,61 @@ const DriftingClouds = memo(function DriftingClouds({ cloudTint }: { cloudTint: 
         tint: cloudTint,
         phase: 6.6,
       },
-      { startX: 4, startY: -1, startZ: -23, speed: 0.4, scale: 1.55, tint: cloudTint, phase: 7.3 },
-      { startX: -4, startY: 6, startZ: -16, speed: 0.6, scale: 1.05, tint: cloudTint, phase: 8.0 },
-      { startX: 12, startY: -8, startZ: -19, speed: 0.5, scale: 1.25, tint: cloudTint, phase: 8.7 },
-      { startX: -18, startY: 9, startZ: -25, speed: 0.35, scale: 1.8, tint: cloudTint, phase: 9.4 },
-      { startX: 8, startY: 0, startZ: -13, speed: 0.7, scale: 0.8, tint: cloudTint, phase: 10.1 },
+      {
+        startX: 4,
+        startY: -1,
+        startZ: -23,
+        speed: 0.4,
+        scale: 1.55,
+        tint: cloudTint,
+        phase: 7.3,
+      },
+      {
+        startX: -4,
+        startY: 6,
+        startZ: -16,
+        speed: 0.6,
+        scale: 1.05,
+        tint: cloudTint,
+        phase: 8.0,
+      },
+      {
+        startX: 12,
+        startY: -8,
+        startZ: -19,
+        speed: 0.5,
+        scale: 1.25,
+        tint: cloudTint,
+        phase: 8.7,
+      },
+      {
+        startX: -18,
+        startY: 9,
+        startZ: -25,
+        speed: 0.35,
+        scale: 1.8,
+        tint: cloudTint,
+        phase: 9.4,
+      },
+      {
+        startX: 8,
+        startY: 0,
+        startZ: -13,
+        speed: 0.7,
+        scale: 0.8,
+        tint: cloudTint,
+        phase: 10.1,
+      },
       // Larger majestic clouds
-      { startX: -8, startY: 4, startZ: -26, speed: 0.3, scale: 2.8, tint: cloudTint, phase: 10.8 },
+      {
+        startX: -8,
+        startY: 4,
+        startZ: -26,
+        speed: 0.3,
+        scale: 2.8,
+        tint: cloudTint,
+        phase: 10.8,
+      },
       {
         startX: 10,
         startY: -3,
@@ -451,6 +543,8 @@ const AMBIENT_SOUNDS = [
 
 type PlayerMode = 'minimized' | 'normal' | 'maximized';
 
+type DreamTrack = { label: string; artist: string; src: string };
+
 export default function DreamTransmission() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const ambientRef = useRef<HTMLAudioElement>(null);
@@ -461,6 +555,29 @@ export default function DreamTransmission() {
   const cometCleanupTimersRef = useRef<number[]>([]);
   const bgRef = useRef<HTMLDivElement>(null);
   const [boostActive, setBoostActive] = useState(false);
+  const [dreamTracks, setDreamTracks] = useState<DreamTrack[]>([]);
+
+  useEffect(() => {
+    const baseUrl = import.meta.env.VITE_MUSIC_BASE_URL || '/music';
+    fetch('/music-manifest.json')
+      .then((res) => res.json())
+      .then((manifest: Record<string, string>) => {
+        const tracks = Object.entries(manifest)
+          .map(([filename, _]) => {
+            const baseName = filename.replace(/\.[^/.]+$/, '');
+            const [artistPart, ...titleParts] = baseName.split(' - ');
+            const hasArtist = titleParts.length > 0;
+            return {
+              label: hasArtist ? titleParts.join(' - ') : baseName,
+              artist: hasArtist ? artistPart : 'Ambient',
+              src: `${baseUrl}/${filename}`,
+            };
+          })
+          .sort((a, b) => `${a.artist} ${a.label}`.localeCompare(`${b.artist} ${b.label}`));
+        setDreamTracks(tracks);
+      })
+      .catch((err) => console.error('Failed to load music manifest:', err));
+  }, []);
   const [wordIndex, setWordIndex] = useState(0);
   const [trackIndex, setTrackIndex] = useState(0);
   const [themeIndex, setThemeIndex] = useState(1); // Default to Lilac Blush
@@ -539,7 +656,6 @@ export default function DreamTransmission() {
     if (!audio) return;
     if (ambientIndex >= 0) {
       audio.src = AMBIENT_SOUNDS[ambientIndex].src;
-      audio.volume = ambientVolume;
       audio.loop = true;
       void audio.play().catch(() => {});
     } else {
@@ -627,7 +743,7 @@ export default function DreamTransmission() {
       });
     }
     shouldResumeOnTrackChangeRef.current = false;
-  }, [trackIndex, ensureAudioBoost]);
+  }, [trackIndex, ensureAudioBoost, dreamTracks]);
 
   // Slow hue drift — oscillates ±7deg (~2% of 360°) over ~3.5 min
   useEffect(() => {

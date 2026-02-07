@@ -1,0 +1,11 @@
+services:
+  dream-transmission:
+    build: .
+    ports:
+      - "3000:80"
+    volumes:
+      # Mount the large music library from host
+      - ./public/music:/usr/share/nginx/html/music:ro
+      # Mount the generated manifest from host
+      - ./public/music-manifest.json:/usr/share/nginx/html/music-manifest.json:ro
+    restart: always
