@@ -4,7 +4,6 @@ import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CloudRain, List, Maximize2, Minimize2, Shuffle } from 'lucide-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import * as THREE from 'three';
 
 const dreamWords = ['Relax', 'Breathe', 'Peace', 'Unwind', 'Stillness', 'Drift'];
@@ -803,12 +802,12 @@ export default function DreamTransmission() {
     >
       {/* Top-Left Wake Up Button */}
       <div className='absolute z-30 top-6 left-6'>
-        <Link
-          to='/'
+        <a
+          href='https://waking.coreyburns.ca'
           className='bg-white/25 backdrop-blur-xl border border-white/20 px-5 py-2.5 rounded-full text-slate-700/80 uppercase tracking-widest text-[10px] hover:bg-white/45 transition-all shadow-lg hover:scale-105 duration-300'
         >
           Wake Up
-        </Link>
+        </a>
       </div>
 
       {/* Theme Picker Widget (Bottom-Left) */}
