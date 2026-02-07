@@ -786,6 +786,12 @@ export default function DreamTransmission() {
   }, []);
 
   const currentTheme = ALL_THEMES[themeIndex];
+  const playerWidth =
+    playerMode === 'minimized'
+      ? 'min(16rem, calc(100vw - 2rem))'
+      : playerMode === 'maximized'
+        ? 'min(28rem, calc(100vw - 2rem))'
+        : 'min(24rem, calc(100vw - 2rem))';
 
   return (
     <div
@@ -806,7 +812,7 @@ export default function DreamTransmission() {
       </div>
 
       {/* Theme Picker Widget (Bottom-Left) */}
-      <div className='absolute z-30 left-4 bottom-4 sm:left-6 sm:bottom-6'>
+      <div className='absolute z-30 left-4 bottom-4 sm:left-6 sm:bottom-6 max-[380px]:left-auto max-[380px]:right-4 max-[380px]:bottom-auto max-[380px]:top-20'>
         <AnimatePresence>
           {showThemePicker && (
             <>
@@ -916,15 +922,15 @@ export default function DreamTransmission() {
         drag={playerMode === 'normal'}
         dragMomentum={false}
         animate={{
-          width:
-            playerMode === 'minimized' ? '16rem' : playerMode === 'maximized' ? '28rem' : '24rem',
+          width: playerWidth,
           height:
             playerMode === 'minimized' ? 'auto' : playerMode === 'maximized' ? '30rem' : 'auto',
         }}
         className='absolute z-30 p-3 overflow-hidden border shadow-2xl right-4 bottom-4 rounded-2xl border-white/45 bg-white/35 text-slate-700 backdrop-blur-xl sm:right-6 sm:bottom-6'
         style={{
           resize: playerMode === 'normal' ? 'both' : 'none',
-          minWidth: playerMode === 'minimized' ? 'auto' : '16rem',
+          minWidth: 'min(16rem, calc(100vw - 2rem))',
+          maxWidth: 'calc(100vw - 1rem)',
           minHeight: playerMode === 'minimized' ? 'auto' : '8rem',
         }}
       >
@@ -1034,7 +1040,7 @@ export default function DreamTransmission() {
               </div>
             )}
 
-            <div className='flex items-center gap-2'>
+            <div className='flex flex-wrap items-center gap-2'>
               <button
                 type='button'
                 onClick={goToPreviousTrack}
@@ -1086,7 +1092,7 @@ export default function DreamTransmission() {
                 >
                   <CloudRain size={12} />
                   {ambientIndex >= 0 && (
-                    <span className='text-[9px] uppercase tracking-wider'>
+                    <span className='hidden text-[9px] uppercase tracking-wider sm:inline'>
                       {AMBIENT_SOUNDS[ambientIndex].label}
                     </span>
                   )}
