@@ -2,7 +2,7 @@ import { Cloud } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CloudRain, List, Maximize2, Minimize2 } from 'lucide-react';
+import { CloudRain, List, Maximize2, Minimize2, Shuffle } from 'lucide-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as THREE from 'three';
@@ -595,6 +595,7 @@ export default function DreamTransmission() {
   // -1 = off, 0/1/2 = index into AMBIENT_SOUNDS
   const [ambientIndex, setAmbientIndex] = useState(-1);
   const [ambientVolume, setAmbientVolume] = useState(0.5);
+  const [isShuffle, setIsShuffle] = useState(false);
 
   const ensureAudioBoost = useMemo(() => {
     return () => {
@@ -706,22 +707,44 @@ export default function DreamTransmission() {
     };
   }, []);
 
-  function selectTrack(nextTrackIndex: number) {
-    if (dreamTracks.length === 0) return;
-    const audio = audioRef.current;
-    shouldResumeOnTrackChangeRef.current = Boolean(audio && !audio.paused);
-    setTrackIndex(nextTrackIndex);
-  }
+  const selectTrack = useMemo(() => {
+    return (nextTrackIndex: number, forcePlay = false) => {
+      if (dreamTracks.length === 0) return;
+      const audio = audioRef.current;
+      shouldResumeOnTrackChangeRef.current = forcePlay || Boolean(audio && !audio.paused);
+      setTrackIndex(nextTrackIndex);
+    };
+  }, [dreamTracks.length]);
 
-  function goToPreviousTrack() {
-    if (dreamTracks.length === 0) return;
-    selectTrack((trackIndex - 1 + dreamTracks.length) % dreamTracks.length);
-  }
+  const goToPreviousTrack = useMemo(() => {
+    return () => {
+      if (dreamTracks.length === 0) return;
+      selectTrack((trackIndex - 1 + dreamTracks.length) % dreamTracks.length);
+    };
+  }, [dreamTracks.length, selectTrack, trackIndex]);
 
-  function goToNextTrack() {
-    if (dreamTracks.length === 0) return;
-    selectTrack((trackIndex + 1) % dreamTracks.length);
-  }
+  const goToRandomTrack = useMemo(() => {
+    return () => {
+      if (dreamTracks.length === 0) return;
+      // Pick a random track that's different from current
+      let randomIndex: number;
+      do {
+        randomIndex = Math.floor(Math.random() * dreamTracks.length);
+      } while (randomIndex === trackIndex && dreamTracks.length > 1);
+      selectTrack(randomIndex, true);
+    };
+  }, [dreamTracks.length, selectTrack, trackIndex]);
+
+  const goToNextTrack = useMemo(() => {
+    return () => {
+      if (dreamTracks.length === 0) return;
+      if (isShuffle) {
+        goToRandomTrack();
+      } else {
+        selectTrack((trackIndex + 1) % dreamTracks.length, true);
+      }
+    };
+  }, [dreamTracks.length, isShuffle, goToRandomTrack, selectTrack, trackIndex]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -953,6 +976,18 @@ export default function DreamTransmission() {
                 </button>
                 <button
                   type='button'
+                  onClick={() => setIsShuffle(!isShuffle)}
+                  className={`transition-all duration-300 ${
+                    isShuffle
+                      ? 'text-slate-900 scale-110 drop-shadow-sm'
+                      : 'text-slate-600/60 hover:text-slate-900'
+                  }`}
+                  title={isShuffle ? 'Shuffle On' : 'Shuffle Off'}
+                >
+                  <Shuffle size={10} strokeWidth={isShuffle ? 3 : 2} />
+                </button>
+                <button
+                  type='button'
                   onClick={goToNextTrack}
                   className='text-slate-600 hover:text-slate-900'
                   title='Next'
@@ -1004,16 +1039,29 @@ export default function DreamTransmission() {
                 type='button'
                 onClick={goToPreviousTrack}
                 disabled={dreamTracks.length === 0}
-                className='rounded-full border border-slate-700/35 bg-white/40 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-slate-800 transition hover:bg-white/65'
+                className='rounded-full border border-slate-700/35 bg-white/40 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-slate-800 transition hover:bg-white/65 disabled:opacity-50'
                 title='Previous Track'
               >
                 Prev
               </button>
               <button
                 type='button'
+                onClick={() => setIsShuffle(!isShuffle)}
+                disabled={dreamTracks.length === 0}
+                className={`rounded-full border px-3 py-1.5 transition-all duration-300 disabled:opacity-50 ${
+                  isShuffle
+                    ? 'bg-white/60 border-white/80 text-slate-900 shadow-md scale-105'
+                    : 'border-slate-700/25 bg-white/20 text-slate-600 hover:bg-white/40'
+                }`}
+                title={isShuffle ? 'Shuffle: Playing at Random' : 'Shuffle: Off'}
+              >
+                <Shuffle size={12} strokeWidth={isShuffle ? 3 : 2} />
+              </button>
+              <button
+                type='button'
                 onClick={goToNextTrack}
                 disabled={dreamTracks.length === 0}
-                className='rounded-full border border-slate-700/35 bg-white/40 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-slate-800 transition hover:bg-white/65'
+                className='rounded-full border border-slate-700/35 bg-white/40 px-3 py-1.5 text-[9px] uppercase tracking-[0.16em] text-slate-800 transition hover:bg-white/65 disabled:opacity-50'
                 title='Next Track'
               >
                 Next
