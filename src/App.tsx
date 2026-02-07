@@ -1118,6 +1118,7 @@ export default function DreamTransmission() {
           <audio
             ref={audioRef}
             controls
+            crossOrigin='anonymous'
             preload='metadata'
             onPlay={handleAudioPlay}
             onEnded={goToNextTrack}
@@ -1131,7 +1132,7 @@ export default function DreamTransmission() {
             Your browser does not support the audio element.
           </audio>
         </div>
-        <audio ref={ambientRef} preload='auto' title='Ambient Sound'>
+        <audio ref={ambientRef} preload='auto' crossOrigin='anonymous' title='Ambient Sound'>
           <track kind='captions' />
         </audio>
 
