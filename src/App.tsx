@@ -507,7 +507,8 @@ const SceneCanvas = memo(function SceneCanvas({ cloudTint }: { cloudTint: string
 const DreamTitle = memo(function DreamTitle({ wordIndex }: { wordIndex: number }) {
   return (
     <div className='absolute z-10 text-center -translate-x-1/2 -translate-y-1/2 pointer-events-none top-1/2 left-1/2'>
-      <motion.h1
+      <h1 className='sr-only'>Dream Transmission - Meditative Ambient Music Experience</h1>
+      <motion.h2
         initial={{ opacity: 0, scale: 0.8, filter: 'blur(10px)' }}
         animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
         transition={{ duration: 4 }}
@@ -525,7 +526,7 @@ const DreamTitle = memo(function DreamTitle({ wordIndex }: { wordIndex: number }
             {dreamWords[wordIndex]}
           </motion.span>
         </AnimatePresence>
-      </motion.h1>
+      </motion.h2>
     </div>
   );
 });
